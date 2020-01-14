@@ -3,6 +3,8 @@ import battlecode.common.*;
 
 public strictfp class RobotPlayer {
     static RobotController rc;
+    
+    static int secretKey = 0xF3F35D5D;
 
     static Direction[] directions = {
         Direction.NORTH,
@@ -26,8 +28,8 @@ public strictfp class RobotPlayer {
     static int dronesBuilt;
 
     static boolean isPrimaryBuilder;
-
     static int buildOrderIndex;
+
     /**
      * Hardcoded initial build order.
      *
@@ -36,6 +38,8 @@ public strictfp class RobotPlayer {
         RobotType.MINER,
         RobotType.MINER,
         RobotType.MINER,
+        RobotType.MINER,
+        RobotType.MINER
     };
 
     /**
@@ -44,25 +48,24 @@ public strictfp class RobotPlayer {
     static int[] buildOrderCosts = {
         70,
         70,
+        70,
+        70,
         70
     };
     
     static int buildingOrderIndex;
     static RobotType[] buildingOrder = {
-    	RobotType.FULFILLMENT_CENTER,
     	RobotType.DESIGN_SCHOOL,
-    	RobotType.NET_GUN
+    	RobotType.FULFILLMENT_CENTER,
     };
     
     static int[] buildingCost = {
         200,
-        200,
-        1000,
-        1000,
         200
     };
     
     static MapLocation hqLocation;
+    static MapLocation targetLocation;
 
     /**
      * run() is the method that is called when a robot is instantiated in the Battlecode world.
@@ -85,6 +88,7 @@ public strictfp class RobotPlayer {
         System.out.println("I'm a " + rc.getType() + " and I just got created!");
 
         switch (rc.getType()) {
+        	case HQ:                 initHQ();                break;
             case MINER:              initMiner();             break;
         }
 
@@ -116,7 +120,29 @@ public strictfp class RobotPlayer {
             }
         }
     }
+    
+    
+    static int[] applyXORtoMessage(int[] message) {
+    	for (int i = 0; i < message.length; i++) {
+    		message[i] = message[i] ^ secretKey;
+    	}
+    	return message;
+    }
+    
+    static void sendHQLocationMessage() throws GameActionException {
+    	MapLocation loc = rc.getLocation();
+    	int[] message = {1, 9, 0, 0, rc.senseElevation(loc), loc.x, loc.y};
+    	rc.submitTransaction(applyXORtoMessage(message), 3);
+    }
 
+    static void initHQ() throws GameActionException {
+    	// try to find soup.
+    	
+    	
+    	// Broadcast our current location
+    	sendHQLocationMessage();
+    }
+ 
     static void runHQ() throws GameActionException {
         // build stuff from order index while it exists
         if (buildOrderIndex < buildOrderUnits.length && buildOrderCosts[buildOrderIndex] < rc.getTeamSoup()) {
@@ -155,7 +181,7 @@ public strictfp class RobotPlayer {
 
     static void initMiner() {
         
-        if (rc.getRoundNum() <= 3) {
+        if (rc.getRoundNum() <= 2) {
             isPrimaryBuilder = true;
             buildingOrderIndex = 0;
         }
@@ -176,7 +202,13 @@ public strictfp class RobotPlayer {
                 }
             }
             
-            minerDefaultMovement();
+            // Don't stray too far from HQ!
+            if (rc.getLocation().distanceSquaredTo(hqLocation) > 12) {
+            	tryMove(rc.getLocation().directionTo(hqLocation));
+            }
+            else {
+            	minerDefaultMovement();
+            }
     	}
     	else {
     		
@@ -199,10 +231,14 @@ public strictfp class RobotPlayer {
 	            	rc.setIndicatorDot(soupLoc, 0, 255, 0);
 	            	// move towards there if too far away.
 	            	if (soupLoc.isAdjacentTo(loc)) {
-	            		tryMine(loc.directionTo(soupLoc));
+	            		if (!tryMine(loc.directionTo(soupLoc))) {
+	            			tryMove(randomDirection());
+	            		}
 	            	}
 	            	else {
-	            		tryMove(loc.directionTo(soupLoc));
+	            		if (!tryMove(loc.directionTo(soupLoc))) {
+	            			tryMove(randomDirection());
+	            		}
 	            	}
 	            }
 	            // no soup found
@@ -218,6 +254,8 @@ public strictfp class RobotPlayer {
     
     static void minerDefaultMovement() throws GameActionException {
     	MapLocation loc = rc.getLocation();
+    	
+    	// If carrying soup, return home
     	if (rc.getSoupCarrying() > 20) {
     		rc.setIndicatorDot(hqLocation, 0, 0, 255);
         	if (hqLocation.isAdjacentTo(loc)) {
@@ -228,7 +266,7 @@ public strictfp class RobotPlayer {
         	}
         }
         else {
-        	tryMove(randomDirection());
+        	simpleTargetMovement();
         }
     }
 
@@ -255,11 +293,41 @@ public strictfp class RobotPlayer {
         	}
         }
     }
-
-    static void runLandscaper() throws GameActionException {
+    
+    static void landscaperMovement() throws GameActionException {
     	
     }
 
+    static void runLandscaper() throws GameActionException {
+    	// build lattice
+    	
+    }
+    
+    /**
+     * Shitty Uniform sample on all map locations lmao. Not too bad though probably.
+     * @param loc
+     * @return A sample point which we want to move towards
+     * @throws GameActionException
+     */
+    static MapLocation sampleTargetLocation(MapLocation loc) throws GameActionException {
+    	return new MapLocation((int)(Math.random() * rc.getMapHeight()), (int)(Math.random() * rc.getMapWidth()));
+    }
+
+    static void simpleTargetMovement() throws GameActionException {
+    	// Sample a point on the grid.
+    	MapLocation loc = rc.getLocation();
+    	if (loc == targetLocation) {
+    		targetLocation = sampleTargetLocation(loc);
+    	}
+    	
+    	// Simple move towards (since this is a flying unit
+    	boolean success = tryMove(loc.directionTo(targetLocation));
+    	for (Direction dir : directions) {
+    		if (success) break;
+    		tryMove(dir);
+    	}
+    }
+ 
     static void runDeliveryDrone() throws GameActionException {
         Team enemy = rc.getTeam().opponent();
         if (!rc.isCurrentlyHoldingUnit()) {
@@ -287,18 +355,22 @@ public strictfp class RobotPlayer {
         		}
         	}
         }
-        tryMove(hqLocation.directionTo(rc.getLocation()));
+        
+        simpleTargetMovement();
+        
     }
 
     static void runNetGun() throws GameActionException {
     	RobotInfo[] robots = rc.senseNearbyRobots();
     	for (RobotInfo robot : robots) {
-    		if (robot.getTeam() != rc.getTeam() && robot.getType() == RobotType.DELIVERY_DRONE) {
-    			
+    		if (robot.getTeam() != rc.getTeam() && rc.canShootUnit(robot.getID())) {
+    			rc.shootUnit(robot.getID());
     		}
     	}
     }
 
+    
+    
     /**
      * Returns a random Direction.
      *
