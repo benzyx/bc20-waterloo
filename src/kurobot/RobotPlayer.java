@@ -35,6 +35,7 @@ public strictfp class RobotPlayer {
         RobotType.MINER,
         RobotType.MINER,
         RobotType.MINER,
+        RobotType.MINER,
         RobotType.MINER
     };
 
@@ -46,16 +47,19 @@ public strictfp class RobotPlayer {
         70,
         70,
         70,
+        70,
         70
     };
     
     static int buildingOrderIndex;
     static RobotType[] buildingOrder = {
+    	RobotType.REFINERY,
     	RobotType.DESIGN_SCHOOL,
-    	RobotType.FULFILLMENT_CENTER,
+    	RobotType.FULFILLMENT_CENTER
     };
     
     static int[] buildingCost = {
+    	200,
         200,
         200
     };
@@ -185,6 +189,12 @@ public strictfp class RobotPlayer {
 		hqLocation = new MapLocation(message[5], message[6]);
     }
     
+    /**
+     * Refinery Location Messages have type == 7.
+     * @param t
+     * @throws GameActionException
+     */
+    
     static void readTransaction(Transaction t) throws GameActionException {
     	int[] message = applyXORtoMessage(t.getMessage());
     	if (message[0] != 1) {
@@ -255,9 +265,22 @@ public strictfp class RobotPlayer {
     }
     
     static MapLocation lastSoupTile;
+    static MapLocation lastRefineryLocation;
+    static MapLocation depositLocation;
 
     static MapLocation findSoup() throws GameActionException {
     	MapLocation loc = rc.getLocation();
+    	
+    	
+        // If we can see the lastMinedSoupTile and it no longer has any soup, we can reset it.
+        if (lastSoupTile != null && rc.canSenseLocation(lastSoupTile)) {
+        	if (rc.senseSoup(lastSoupTile) == 0) lastSoupTile = null;
+        	else {
+        		return lastSoupTile;
+        	}
+        }
+        
+        
     	int bestSoupAmount = 0;
 		MapLocation soupLoc = null;
 		
@@ -271,42 +294,61 @@ public strictfp class RobotPlayer {
         			bestSoupAmount = soupAmount;
         			soupLoc = loc.translate(dx, dy);
         		}
-
         	}
         }
-        
         
         if (soupLoc != null) {
         	lastSoupTile = soupLoc;
         	return soupLoc;
         }
         
-        // If we can see the lastMinedSoupTile and it no longer has any soup, we can reset it.
-        if (lastSoupTile != null && rc.canSenseLocation(lastSoupTile)) {
-        	if (rc.senseSoup(lastSoupTile) == 0)
-        		lastSoupTile = null;
-        }
 
         return lastSoupTile;
     }
-
+    
+    /**
+     * Intelligently builds a building to be on the lattice, and not adjacent to HQ.
+     * @param robotType
+     * @return true if successfully builds, else false
+     * @throws GameActionException
+     */
+    static boolean smartBuild(RobotType robotType) throws GameActionException{
+    	for (Direction dir : directions) {
+        	
+        	// Do not build anything adjacent to our HQ.
+        	MapLocation potentialBuildLocation = rc.getLocation().add(dir);
+        	if (potentialBuildLocation.isAdjacentTo(hqLocation) && !onLatticeTiles(potentialBuildLocation)) {
+        		continue;
+        	}
+            if (tryBuild(robotType, dir)) return true;
+        }
+    	return false;
+    }
+    
     static void runMiner() throws GameActionException {
     	
+    	// Sense Nearby Refineries
+    	RobotInfo[] robots = rc.senseNearbyRobots();
+    	for (RobotInfo robot : robots) {
+    		if (robot.getTeam() == rc.getTeam() && robot.getType() == RobotType.REFINERY) {
+    			lastRefineryLocation = robot.getLocation();
+    		}
+    	}
+
     	// Option 1: PRIMARY BUILDER
     	if (isPrimaryBuilder) {
     		rc.setIndicatorDot(rc.getLocation(), 255, 0, 0);
             if (buildingOrderIndex < buildingOrder.length && buildingCost[buildingOrderIndex] < rc.getTeamSoup()) {
-                for (Direction dir : directions) {
-                    boolean success = tryBuild(buildingOrder[buildingOrderIndex], dir);
-                    if (success) {
-                        buildingOrderIndex++;
-                        break;
-                    }
-                }
+            	boolean success = smartBuild(buildingOrder[buildingOrderIndex]);
+                if (success) buildingOrderIndex++;
+                
+            }
+            if (buildingOrderIndex == buildingOrder.length && rc.getRoundNum() > 150 && rc.getTeamSoup() >= RobotType.VAPORATOR.cost && Math.random() > 0.1) {
+            	smartBuild(RobotType.VAPORATOR);
             }
             
             // Don't stray too far from HQ!
-            if (rc.getLocation().distanceSquaredTo(hqLocation) > 12) {
+            if (rc.getLocation().distanceSquaredTo(hqLocation) > 25) {
             	tryMove(rc.getLocation().directionTo(hqLocation));
             }
             else {
@@ -318,8 +360,11 @@ public strictfp class RobotPlayer {
     		minerMineSoup();
     	}
     	// Option 3: DEPOSITING SOUP
+    	else if (rc.getSoupCarrying() > 60) {
+    		minerDepositSoup();
+    	}
     	else {
-    		minerDefaultMovement();
+    		simpleTargetMovement();
     	}
     }
     
@@ -349,23 +394,40 @@ public strictfp class RobotPlayer {
         }
     }
 
-    static void minerDefaultMovement() throws GameActionException {
+    static void minerDepositSoup() throws GameActionException {
     	MapLocation loc = rc.getLocation();
     	
-    	// If carrying soup, return home
-    	if (rc.getSoupCarrying() > 60) {
-    		if (hqLocation != null) {
-    			// If we are next to HQ, drop our shit.
-    			if (hqLocation.isAdjacentTo(loc)) {
-            		tryRefine(loc.directionTo(hqLocation));
-            	}
-            	else {
-            		targetLocation = hqLocation;
-            		rc.setIndicatorLine(loc, hqLocation, 0, 0, 255);
-            		simpleTargetMovement();
-            	}
+    	// Update target deposit location
+    	
+    	// If a refinery was seen and isn't too far away.
+    	if (lastRefineryLocation != null && loc.distanceSquaredTo(lastRefineryLocation) < 70) {
+    		depositLocation = lastRefineryLocation;
+    	}
+    	// If HQ isn't too far away.
+    	else if (hqLocation != null && loc.distanceSquaredTo(hqLocation) < 45) {
+    		depositLocation = hqLocation;
+    	}
+    	else if (rc.getTeamSoup() >= RobotType.REFINERY.cost) {
+    		for (Direction dir : directions) {
+    			if (tryBuild(RobotType.REFINERY, dir)) {
+    				lastRefineryLocation = loc.add(dir);
+    				depositLocation = lastRefineryLocation;
+    				break;
+    			}
     		}
-        }
+    	}
+    	
+    	if (depositLocation != null) {
+			// If we are next to HQ, drop our shit.
+			if (loc.isAdjacentTo(depositLocation)) {
+	    		tryRefine(loc.directionTo(depositLocation));
+	    	}
+	    	else {
+	    		targetLocation = depositLocation;
+	    		rc.setIndicatorLine(loc, depositLocation, 0, 0, 255);
+	    		simpleTargetMovement();
+			}
+    	}
     	else {
     		simpleTargetMovement();
     	}
@@ -399,7 +461,7 @@ public strictfp class RobotPlayer {
     // FULFILLMENT CENTER
     // ---
     static void runFulfillmentCenter() throws GameActionException {
-        if (rc.getTeamSoup() > 300 && Math.random() < 0.1) {
+        if (rc.getTeamSoup() > 800 && Math.random() < 0.1) {
         	for (Direction dir : directions) {
         		tryBuild(RobotType.DELIVERY_DRONE, dir);
         	}
@@ -409,8 +471,12 @@ public strictfp class RobotPlayer {
     // ----------
     // LANDSCAPER
     // ----------
+    
     static boolean dumpMode = false;
     static MapLocation targetDumpLocation = null;
+    static int targetDumpPriority;
+    static int lastKnownElevationOfWall[] = new int[8];
+    static int lastObservedRoundNumberOfWall[] = new int[8];
     /**
      * Returns true if the location is on the high ground lattice built by landscapers.
      * For now, the lattice is aligned to put the HQ on the low ground (not on lattice).
@@ -435,7 +501,7 @@ public strictfp class RobotPlayer {
     		dumpMode = false;
     		targetLocation = null;
     	}
-    	if (rc.getDirtCarrying() > 10) {
+    	if (rc.getDirtCarrying() > 20) {
     		dumpMode = true;
     		Direction randomDir = directions[(int)(Math.random() * directions.length)];
     		targetLocation = hqLocation.add(randomDir);
@@ -456,18 +522,19 @@ public strictfp class RobotPlayer {
     	// Is in dump mode! Trying to build shit now!
     	else {
     		
-    		// Check if we have a dump target assigned:
-    		
-    		// Check if we can dump our materials near the HQ
-    		for (Direction dir : directions) {
-    			MapLocation potentialDumpSpot = loc.add(dir);
-    			if (potentialDumpSpot.equals(hqLocation)) {
+    		// Try to find the best dump target for us around the HQ
+    		for (int i = 0; i < directions.length; i++) {
+    			Direction dir = directions[i];
+    			MapLocation potentialDumpLocation = hqLocation.add(dir);
+    			if (potentialDumpLocation.equals(hqLocation)) {
 					continue;
 				}
-    			if (rc.canSenseLocation(potentialDumpSpot)) {
+    			
+    			// Visible!
+    			if (rc.canSenseLocation(potentialDumpLocation)) {
     				
     				// Make sure we are not burying our own buildings.
-    				RobotInfo robot = rc.senseRobotAtLocation(potentialDumpSpot);
+    				RobotInfo robot = rc.senseRobotAtLocation(potentialDumpLocation);
     				if (robot != null && 
     					robot.getTeam() == rc.getTeam() &&
     						(robot.getType() == RobotType.HQ ||
@@ -475,30 +542,47 @@ public strictfp class RobotPlayer {
     						robot.getType() == RobotType.FULFILLMENT_CENTER)) {
     					continue;
     				}
-    				
-    				
+  
     				// Elevation will be useful.
-					int elevation = rc.senseElevation(potentialDumpSpot);
+					int elevation = rc.senseElevation(potentialDumpLocation);
+					
+					lastKnownElevationOfWall[i] = elevation;
+					lastObservedRoundNumberOfWall[i] = rc.getRoundNum();
 
 					// Type 1: Dumping next to the HQ to form wall
-					if (potentialDumpSpot.isAdjacentTo(hqLocation) && elevation < hqElevation + 3) {
-						if (tryDeposit(dir)) break;
+					if (potentialDumpLocation.isAdjacentTo(hqLocation)) {
+						int potentialDumpPriority = 1050 - elevation;
+						if (potentialDumpPriority > targetDumpPriority) {
+							targetDumpPriority = potentialDumpPriority;
+							targetDumpLocation = potentialDumpLocation;
+						}
 					}
-					
-					int roundNum = rc.getRoundNum();
-
-					// Type 1: Dumping next to the HQ to form wall
-					if (potentialDumpSpot.isAdjacentTo(hqLocation) && roundNum > 250) {
-						if (tryDeposit(dir)) break;
-					}
-					
-					// Type 2: Extended lattice
-					if (!(potentialDumpSpot.x % 2 == hqLocation.x % 2 && potentialDumpSpot.y % 2 == hqLocation.y % 2) &&
-							elevation < 12) {
-						if (tryDeposit(dir)) break;
-					}
-				}
+				}	
+    			else {
+    				// If we haven't seen this tile for 200+ rounds
+    				if (rc.getRoundNum() - lastObservedRoundNumberOfWall[i] > 200) {
+						int potentialDumpPriority = 1050 - lastKnownElevationOfWall[i];
+    					if (potentialDumpPriority > targetDumpPriority) {
+    						targetDumpPriority = potentialDumpPriority;
+							targetDumpLocation = potentialDumpLocation;
+    					}
+    				}
+    			}
     		}
+    		
+    		// Check if we have a dump target assigned:
+    		if (targetDumpLocation != null) {
+    			if (targetDumpLocation.isAdjacentTo(loc)) {
+    				if (tryDeposit(loc.directionTo(targetDumpLocation))) {
+        				targetDumpPriority -= 1;	
+    				}
+    				targetLocation = null;
+    			}
+    			else {
+        			targetLocation = targetDumpLocation;
+    			}
+    		}
+    		
     		simpleTargetMovement();
     	}
     	
@@ -514,7 +598,9 @@ public strictfp class RobotPlayer {
             RobotInfo[] robots = rc.senseNearbyRobots(GameConstants.DELIVERY_DRONE_PICKUP_RADIUS_SQUARED, enemy);
             if (robots.length > 0) {
                 // Pick up a first robot within range
-                rc.pickUpUnit(robots[0].getID());
+                if (rc.canPickUpUnit(robots[0].getID())) {
+                	rc.pickUpUnit(robots[0].getID());
+                }
             }
         }
         else {
@@ -552,10 +638,28 @@ public strictfp class RobotPlayer {
     // PATHFINDING
     // -----------
     
+    // This is important!
+    // targetLocation is used by all units to determine where they want to move to next.
+    // 
     static MapLocation targetLocation;
- 
+    
+    static Direction nextClockwiseDirection(Direction dir) {
+    	switch (dir) {
+    		case NORTH: 	return Direction.NORTHEAST;
+    		case NORTHEAST: return Direction.EAST;
+    		case EAST: 		return Direction.SOUTHEAST;
+    		case SOUTHEAST: return Direction.SOUTH;
+    		case SOUTH:		return Direction.SOUTHWEST;
+    		case SOUTHWEST: return Direction.WEST;
+    		case WEST:      return Direction.NORTHWEST;
+    		case NORTHWEST: return Direction.NORTH;
+    		case CENTER:    return Direction.CENTER;
+    		default: return Direction.CENTER;
+    	}
+    }
+
     /**
-     * Shitty Uniform sample on all map locations. Not too bad though probably.
+     * Uniform sample on all map locations. Not too bad though probably.
      * @param loc
      * @return A sample point which we want to move towards
      * @throws GameActionException
@@ -575,12 +679,16 @@ public strictfp class RobotPlayer {
     		targetLocation = sampleTargetLocation(loc);
     	}
     	
-    	rc.setIndicatorLine(loc,  targetLocation, 100, 100, 100);
-    	// Simple move towards (since this is a flying unit
+    	// rc.setIndicatorLine(loc, targetLocation, 100, 100, 100);
+ 
+    	// Simple move towards
+    	Direction dir = loc.directionTo(targetLocation);
     	boolean success = tryMove(loc.directionTo(targetLocation));
-    	for (Direction dir : directions) {
-    		if (success) break;
+    	int tries = 7;
+    	while (tries > 0 && !success) {
+    		dir = nextClockwiseDirection(dir);
     		success = tryMove(dir);
+    		tries--;
     	}
     }
     
