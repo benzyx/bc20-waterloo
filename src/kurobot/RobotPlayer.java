@@ -302,7 +302,6 @@ public strictfp class RobotPlayer {
         	return soupLoc;
         }
         
-
         return lastSoupTile;
     }
     
@@ -317,9 +316,12 @@ public strictfp class RobotPlayer {
         	
         	// Do not build anything adjacent to our HQ.
         	MapLocation potentialBuildLocation = rc.getLocation().add(dir);
-        	if (potentialBuildLocation.isAdjacentTo(hqLocation) && !onLatticeTiles(potentialBuildLocation)) {
+        	if (potentialBuildLocation.isAdjacentTo(hqLocation) || !onLatticeTiles(potentialBuildLocation)) {
         		continue;
         	}
+        	
+        	System.out.println("Potential build spot is: " + potentialBuildLocation);
+        	System.out.println("hqLocation is: " + hqLocation);
             if (tryBuild(robotType, dir)) return true;
         }
     	return false;
@@ -337,8 +339,9 @@ public strictfp class RobotPlayer {
 
     	// Option 1: PRIMARY BUILDER
     	if (isPrimaryBuilder) {
-    		rc.setIndicatorDot(rc.getLocation(), 255, 0, 0);
+    		rc.setIndicatorDot(rc.getLocation(), 128, 0, 0);
             if (buildingOrderIndex < buildingOrder.length && buildingCost[buildingOrderIndex] < rc.getTeamSoup()) {
+            	System.out.println("About to smartbuild!");
             	boolean success = smartBuild(buildingOrder[buildingOrderIndex]);
                 if (success) buildingOrderIndex++;
                 
