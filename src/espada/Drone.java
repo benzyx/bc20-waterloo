@@ -4,6 +4,15 @@ import battlecode.common.*;
 
 public class Drone extends Unit {
 
+	public enum DroneMode {
+		ROAM,
+		ROAM_HOLDING_ENEMY,
+		AWAITING_STRIKE,
+		SWARM,
+	}
+
+	MapLocation enemyHQLocation;
+	
 	public Drone(RobotController _rc) {
 		super(_rc);
 		// TODO Auto-generated constructor stub
@@ -15,6 +24,12 @@ public class Drone extends Unit {
         if (!rc.isCurrentlyHoldingUnit()) {
             // See if there are any enemy robots within striking range (distance 1 from lumberjack's radius)
             RobotInfo[] robots = rc.senseNearbyRobots(GameConstants.DELIVERY_DRONE_PICKUP_RADIUS_SQUARED, enemy);
+            
+            for (RobotInfo robot : robots) {
+            	if (robot.getType() == RobotType.HQ) {
+            		enemyHQLocation = robot.getLocation();
+            	}
+            }
             if (robots.length > 0) {
                 // Pick up a first robot within range
                 if (rc.canPickUpUnit(robots[0].getID())) {
@@ -35,13 +50,13 @@ public class Drone extends Unit {
         					rc.dropUnit(loc.directionTo(dropTile));
         				}
         				else {
-        					tryMove(loc.directionTo(dropTile));
+        					path.tryMove(loc.directionTo(dropTile));
         				}
         			}
         		}
         	}
         }
-        simpleTargetMovement();
+        path.simpleTargetMovement();
 	}
 
 }

@@ -4,8 +4,12 @@ import battlecode.common.*;
 
 public class Miner extends Unit {
 	
-    static boolean isPrimaryBuilder = false;
+	enum MinerMode {
+		PRIMARY_BUILDER,
+		SOUP_COLLECTING,
+	};
 
+	static MinerMode mode = MinerMode.SOUP_COLLECTING;
     
     static int buildingOrderIndex;
 
@@ -23,10 +27,8 @@ public class Miner extends Unit {
     
 	public Miner(RobotController _rc) throws GameActionException {
 		super(_rc);
-    	findHQ();
-
         if (rc.getRoundNum() <= 2) {
-            isPrimaryBuilder = true;
+            mode = MinerMode.PRIMARY_BUILDER;
             buildingOrderIndex = 0;
         }
     }
@@ -43,13 +45,12 @@ public class Miner extends Unit {
         	}
         }
         
-        
     	int bestSoupAmount = 0;
 		MapLocation soupLoc = null;
 		
 		// Search for soup locally.
-        for (int dx = -7; dx <= 7; dx++) {
-        	for (int dy = -7; dy <= 7; dy++) {
+        for (int dx = -6; dx <= 6; dx++) {
+        	for (int dy = -6; dy <= 6; dy++) {
         		if (!rc.canSenseLocation(loc.translate(dx, dy))) continue;
         		
     			int soupAmount = rc.senseSoup(loc.translate(dx, dy));
@@ -74,24 +75,56 @@ public class Miner extends Unit {
      * @return true if successfully builds, else false
      * @throws GameActionException
      */
-    static boolean smartBuild(RobotType robotType) throws GameActionException{
+    static MapLocation smartBuild(RobotType robotType) throws GameActionException{
     	for (Direction dir : directions) {
         	
         	// Do not build anything adjacent to our HQ.
         	MapLocation potentialBuildLocation = rc.getLocation().add(dir);
-        	if (potentialBuildLocation.isAdjacentTo(hqLocation) || !onLatticeTiles(potentialBuildLocation)) {
+        	if (potentialBuildLocation.isAdjacentTo(hqLocation) || !onLatticeIntersections(potentialBuildLocation)) {
         		continue;
         	}
-        	
         	System.out.println("Potential build spot is: " + potentialBuildLocation);
-        	System.out.println("hqLocation is: " + hqLocation);
-            if (tryBuild(robotType, dir)) return true;
+            if (tryBuild(robotType, dir)) return potentialBuildLocation;
         }
-    	return false;
+    	return null;
     }
     
     @Override
     public void run() throws GameActionException {
+    	txn.updateToLatestBlock();
+    	senseNearbyRefineries();
+    	switch (mode) {
+    	case PRIMARY_BUILDER:
+    		primaryBuilder();
+    		break;
+    	case SOUP_COLLECTING:
+    		soupCollecting();
+    		break;
+    	}
+    }
+    
+    static void primaryBuilder() throws GameActionException{
+		rc.setIndicatorDot(rc.getLocation(), 128, 0, 0);
+        if (buildingOrderIndex < buildingOrder.length && buildingOrder[buildingOrderIndex].cost < rc.getTeamSoup()) {
+        	System.out.println("About to smartbuild!");
+        	MapLocation built = smartBuild(buildingOrder[buildingOrderIndex]);
+            if (built != null) buildingOrderIndex++;
+            
+        }
+        if (buildingOrderIndex == buildingOrder.length && rc.getRoundNum() > 150 && rc.getTeamSoup() >= RobotType.VAPORATOR.cost && Math.random() > 0.1) {
+        	smartBuild(RobotType.VAPORATOR);
+        }
+        
+        // Don't stray too far from HQ!
+        if (rc.getRoundNum() < 200 && rc.getLocation().distanceSquaredTo(hqLocation) > 25) {
+        	path.tryMove(rc.getLocation().directionTo(hqLocation));
+        }
+        else {
+        	path.tryMove(randomDirection());
+        }
+    }
+    
+    static void senseNearbyRefineries() throws GameActionException {
     	// Sense Nearby Refineries
     	RobotInfo[] robots = rc.senseNearbyRobots();
     	for (RobotInfo robot : robots) {
@@ -99,30 +132,10 @@ public class Miner extends Unit {
     			lastRefineryLocation = robot.getLocation();
     		}
     	}
+    }
 
-    	// Option 1: PRIMARY BUILDER
-    	if (isPrimaryBuilder) {
-    		rc.setIndicatorDot(rc.getLocation(), 128, 0, 0);
-            if (buildingOrderIndex < buildingOrder.length && buildingOrder[buildingOrderIndex].cost < rc.getTeamSoup()) {
-            	System.out.println("About to smartbuild!");
-            	boolean success = smartBuild(buildingOrder[buildingOrderIndex]);
-                if (success) buildingOrderIndex++;
-                
-            }
-            if (buildingOrderIndex == buildingOrder.length && rc.getRoundNum() > 150 && rc.getTeamSoup() >= RobotType.VAPORATOR.cost && Math.random() > 0.1) {
-            	smartBuild(RobotType.VAPORATOR);
-            }
-            
-            // Don't stray too far from HQ!
-            if (rc.getLocation().distanceSquaredTo(hqLocation) > 25) {
-            	tryMove(rc.getLocation().directionTo(hqLocation));
-            }
-            else {
-            	tryMove(randomDirection());
-            }
-    	}
-    	// Option 2: FINDING / MINING SOUP
-    	else if (rc.getSoupCarrying() < RobotType.MINER.soupLimit) {	
+    static void soupCollecting() throws GameActionException {
+    	if (rc.getSoupCarrying() < RobotType.MINER.soupLimit) {	
     		minerMineSoup();
     	}
     	// Option 3: DEPOSITING SOUP
@@ -130,11 +143,14 @@ public class Miner extends Unit {
     		minerDepositSoup();
     	}
     	else {
-    		simpleTargetMovement();
+    		path.simpleTargetMovement();
     	}
     }
-    
+
     static void minerMineSoup() throws GameActionException {
+
+    	System.out.println("Trying to mine soup!");
+
     	MapLocation loc = rc.getLocation();
     	MapLocation soupLoc = findSoup();
         // found some soup!
@@ -142,21 +158,18 @@ public class Miner extends Unit {
         	rc.setIndicatorDot(soupLoc, 0, 255, 0);
         	// If we are next to the soup, we will mine it.
         	if (soupLoc.isAdjacentTo(loc)) {
-        		targetLocation = null;
-        		if (!tryMine(loc.directionTo(soupLoc))) {
-        			tryMove(randomDirection());
-        		}
+        		tryMine(loc.directionTo(soupLoc));
         	}
         	
         	// If we are not next to the soup, we will move towards it.
         	else {
-        		targetLocation = soupLoc;
-        		simpleTargetMovement();
+        		path.simpleTargetMovement(soupLoc);
         	}
         }
         else {
         	// Explore the world for more soup.
-        	simpleTargetMovement();
+        	System.out.println("Exploring the world for more soup.");
+        	path.simpleTargetMovement();
         }
     }
 
@@ -174,29 +187,28 @@ public class Miner extends Unit {
     		depositLocation = hqLocation;
     	}
     	else if (rc.getTeamSoup() >= RobotType.REFINERY.cost) {
-    		for (Direction dir : directions) {
-    			if (tryBuild(RobotType.REFINERY, dir)) {
-    				lastRefineryLocation = loc.add(dir);
-    				depositLocation = lastRefineryLocation;
-    				break;
-    			}
+    	
+    		MapLocation built = smartBuild(RobotType.REFINERY);
+    		if (built != null) {
+    			lastRefineryLocation = built;
+    			depositLocation = built;
+    		
     		}
     	}
     	
     	if (depositLocation != null) {
-			// If we are next to HQ, drop our shit.
+			// If we are next to the deposit location, deposit (obviously).
 			if (loc.isAdjacentTo(depositLocation)) {
 	    		tryRefine(loc.directionTo(depositLocation));
-	    		targetLocation = null;
+	    		path.resetTarget();
 	    	}
 	    	else {
-	    		targetLocation = depositLocation;
-	    		rc.setIndicatorLine(loc, depositLocation, 0, 0, 255);
-	    		simpleTargetMovement();
+	    		path.simpleTargetMovement(depositLocation);
+	    		rc.setIndicatorLine(rc.getLocation(), depositLocation, 0, 0, 255);
 			}
     	}
     	else {
-    		simpleTargetMovement();
+    		path.simpleTargetMovement();
     	}
     }
 }

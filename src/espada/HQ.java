@@ -25,11 +25,13 @@ public class HQ extends Unit {
     	hqLocation = rc.getLocation();
     	
     	// Broadcast our current location
-    	sendHQLocationMessage(15);
+    	txn.sendHQLocationMessage(hqLocation, 15);
 	}
 	
 	@Override
 	public void run() throws GameActionException {
+		txn.updateToLatestBlock();
+		
         // build stuff from order index while it exists
         if (buildOrderIndex < buildOrderUnits.length && buildOrderUnits[buildOrderIndex].cost < rc.getTeamSoup()) {
             for (Direction dir : directions) {
