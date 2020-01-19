@@ -58,9 +58,15 @@ class PathingLogic {
      * @param dir
      */
     static boolean isSafeToMoveInDirection(Direction dir) throws GameActionException {
-    	if (rc.getType() == RobotType.DELIVERY_DRONE) return true;
     	MapLocation moveSpot = rc.getLocation().add(dir);
-    	return (rc.canSenseLocation(moveSpot) && !rc.senseFlooding(moveSpot));
+    	if (rc.getType() == RobotType.DELIVERY_DRONE) {
+    		if (Unit.enemyHQLocation == null) return true;
+    		return (Drone.yoloMode || moveSpot.distanceSquaredTo(Unit.enemyHQLocation) > Drone.safeRadiusFromHQ);
+    	}
+    	else {
+        	return (rc.canSenseLocation(moveSpot) && !rc.senseFlooding(moveSpot));
+    	}
+    	
     }
     
     static boolean alreadyVisitedOnPath(MapLocation loc) {
@@ -77,6 +83,18 @@ class PathingLogic {
 		}
     	return false; 
     }
+    
+
+    /**
+     * Moves towards targetLocation.
+     * @param new location to move to.
+     * @throws GameActionException
+     */
+    void simpleTargetMovement(MapLocation newLoc, boolean onLattice) throws GameActionException {
+    	setTarget(newLoc);
+    	simpleTargetMovement(onLattice);
+    }
+    
     /**
      * Moves towards targetLocation.
      * @param new location to move to.
@@ -84,14 +102,25 @@ class PathingLogic {
      */
     void simpleTargetMovement(MapLocation newLoc) throws GameActionException {
     	setTarget(newLoc);
-    	simpleTargetMovement();
+    	simpleTargetMovement(false);
     }
+  
   
     /**
      * Moves towards targetLocation.
      * @throws GameActionException
      */
     void simpleTargetMovement() throws GameActionException {
+    	simpleTargetMovement(false);
+    }
+    
+    /**
+     * Move towards targetLocation but only on lattice grid tiles.
+     * 
+     * @param onLattice
+     * @throws GameActionException
+     */
+    void simpleTargetMovement(boolean onLattice) throws GameActionException {
     	// Sample a point on the grid.
     	MapLocation loc = rc.getLocation();
     	if (targetLocation == null || loc.equals(targetLocation)) {
@@ -100,11 +129,11 @@ class PathingLogic {
     	 
     	// Simple move towards
     	Direction dir = loc.directionTo(targetLocation);
-    	boolean success = !alreadyVisitedOnPath(targetLocation) && tryMove(loc.directionTo(targetLocation));
+    	boolean success = (!onLattice || Unit.onLatticeTiles(targetLocation)) && !alreadyVisitedOnPath(targetLocation) && tryMove(loc.directionTo(targetLocation));
     	int tries = 7;
     	while (tries > 0 && !success) {
     		dir = nextClockwiseDirection(dir);
-    		success = !alreadyVisitedOnPath(loc.add(dir)) && tryMove(dir);
+    		success = (!onLattice || Unit.onLatticeTiles(loc.add(dir))) && !alreadyVisitedOnPath(loc.add(dir)) && tryMove(dir);
     		tries--;
     	}
     	

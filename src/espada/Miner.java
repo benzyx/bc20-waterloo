@@ -14,10 +14,10 @@ public class Miner extends Unit {
     static int buildingOrderIndex;
 
     static RobotType[] buildingOrder = {
-    	RobotType.DESIGN_SCHOOL,
-    	RobotType.VAPORATOR,
-    	RobotType.VAPORATOR,
     	RobotType.REFINERY,
+    	RobotType.VAPORATOR,
+    	RobotType.VAPORATOR,
+    	RobotType.DESIGN_SCHOOL,
     	RobotType.FULFILLMENT_CENTER,
     };
     
@@ -83,7 +83,6 @@ public class Miner extends Unit {
         	if (potentialBuildLocation.isAdjacentTo(hqLocation) || !onLatticeIntersections(potentialBuildLocation)) {
         		continue;
         	}
-        	System.out.println("Potential build spot is: " + potentialBuildLocation);
             if (tryBuild(robotType, dir)) return potentialBuildLocation;
         }
     	return null;
@@ -103,10 +102,20 @@ public class Miner extends Unit {
     	}
     }
     
-    static void primaryBuilder() throws GameActionException{
+    static void randomWalkOnLattice() throws GameActionException {
+    	// Randomly move on lattice.
+    	Direction dir = Direction.CENTER;
+    	int tries = 100;
+    	while (tries > 0) {
+    		dir = randomDirection();
+    		if (onLatticeTiles(rc.getLocation().add(dir)) && path.tryMove(dir)) break;
+    		tries--;
+    	}	
+    }
+    
+    static void primaryBuilder() throws GameActionException {
 		rc.setIndicatorDot(rc.getLocation(), 128, 0, 0);
         if (buildingOrderIndex < buildingOrder.length && buildingOrder[buildingOrderIndex].cost < rc.getTeamSoup()) {
-        	System.out.println("About to smartbuild!");
         	MapLocation built = smartBuild(buildingOrder[buildingOrderIndex]);
             if (built != null) buildingOrderIndex++;
             
@@ -116,12 +125,13 @@ public class Miner extends Unit {
         }
         
         // Don't stray too far from HQ!
-        if (rc.getRoundNum() < 200 && rc.getLocation().distanceSquaredTo(hqLocation) > 25) {
-        	path.tryMove(rc.getLocation().directionTo(hqLocation));
+        // Still want to stay on lattice though.
+        if (rc.getRoundNum() < 200 && rc.getLocation().distanceSquaredTo(hqLocation) > 32) {
+        	Direction dir = rc.getLocation().directionTo(hqLocation);
+        	if (onLatticeTiles(rc.getLocation().add(dir))) path.tryMove(dir);
         }
-        else {
-        	path.tryMove(randomDirection());
-        }
+
+        randomWalkOnLattice();
     }
     
     static void senseNearbyRefineries() throws GameActionException {
@@ -138,7 +148,6 @@ public class Miner extends Unit {
     	if (rc.getSoupCarrying() < RobotType.MINER.soupLimit) {	
     		minerMineSoup();
     	}
-    	// Option 3: DEPOSITING SOUP
     	else if (rc.getSoupCarrying() > 60) {
     		minerDepositSoup();
     	}
@@ -187,12 +196,15 @@ public class Miner extends Unit {
     		depositLocation = hqLocation;
     	}
     	else if (rc.getTeamSoup() >= RobotType.REFINERY.cost) {
-    	
+    		
+    		System.out.println("Trying to build refinery!");
     		MapLocation built = smartBuild(RobotType.REFINERY);
     		if (built != null) {
     			lastRefineryLocation = built;
     			depositLocation = built;
-    		
+    		}
+    		else {
+    			System.out.println("Failed???");
     		}
     	}
     	
@@ -210,5 +222,33 @@ public class Miner extends Unit {
     	else {
     		path.simpleTargetMovement();
     	}
+    }
+    
+    /**
+     * Attempts to mine soup in a given direction.
+     *
+     * @param dir The intended direction of mining
+     * @return true if a move was performed
+     * @throws GameActionException
+     */
+    static boolean tryMine(Direction dir) throws GameActionException {
+        if (rc.isReady() && rc.canMineSoup(dir)) {
+            rc.mineSoup(dir);
+            return true;
+        } else return false;
+    }
+
+    /**
+     * Attempts to refine soup in a given direction.
+     *
+     * @param dir The intended direction of refining
+     * @return true if a move was performed
+     * @throws GameActionException
+     */
+    static boolean tryRefine(Direction dir) throws GameActionException {
+        if (rc.isReady() && rc.canDepositSoup(dir)) {
+            rc.depositSoup(dir, rc.getSoupCarrying());
+            return true;
+        } else return false;
     }
 }

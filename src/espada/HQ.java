@@ -4,18 +4,14 @@ import battlecode.common.*;
 
 public class HQ extends Unit {
 	
-    static int buildOrderIndex;
+    static int minersProduced = 0;
 
+    static final int initialMinersCount = 6;
     /**
-     * Hardcoded initial build order.
-     *
-     **/
-    static RobotType[] buildOrderUnits = {
-        RobotType.MINER,
-        RobotType.MINER,
-        RobotType.MINER,
-        RobotType.MINER
-    };
+     * Hardcoded initial miner count
+     * @param rc
+     * @throws GameActionException
+     */
     
     
 	public HQ(RobotController rc) throws GameActionException{
@@ -25,20 +21,19 @@ public class HQ extends Unit {
     	hqLocation = rc.getLocation();
     	
     	// Broadcast our current location
-    	txn.sendHQLocationMessage(hqLocation, 15);
+    	txn.sendLocationMessage(rc.senseRobotAtLocation(hqLocation), hqLocation, 15);
 	}
 	
 	@Override
 	public void run() throws GameActionException {
 		txn.updateToLatestBlock();
 		
-        // build stuff from order index while it exists
-        if (buildOrderIndex < buildOrderUnits.length && buildOrderUnits[buildOrderIndex].cost < rc.getTeamSoup()) {
-            for (Direction dir : directions) {
-                boolean success = tryBuild(buildOrderUnits[buildOrderIndex], dir);
-                if (success) {
-                    buildOrderIndex++;
-                    break;
+        // Otherwise, start trying to build miners if we have too much soup.
+        if (minersProduced < initialMinersCount || rc.getTeamSoup() > 300 && Math.random() < 0.1) {
+        	for (Direction dir : directions) {
+                if (tryBuild(RobotType.MINER, dir)) {
+                	minersProduced++;
+                	break;
                 }
             }
         }
@@ -51,12 +46,7 @@ public class HQ extends Unit {
     		}
     	}
     	
-        // Otherwise, start trying to build miners if we have too much soup.
-        if (rc.getTeamSoup() > 300 && Math.random() < 0.1) {
-        	for (Direction dir : directions) {
-                if (tryBuild(RobotType.MINER, dir)) break;
-            }
-        }
+
 	}
 
 }

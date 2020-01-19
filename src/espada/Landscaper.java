@@ -11,6 +11,7 @@ public class Landscaper extends Unit {
     	ON_WALL,
     	ROAM,
     	ATTACK,
+    	RUSH_DEFENSE,
     	EARLY_RUSH,
     };
     
@@ -73,9 +74,10 @@ public class Landscaper extends Unit {
 			// Not on map
 			if (!rc.onTheMap(wallLocation)) {
 				wallPositionFilledCount++;
+				continue;
 			}
 			// On Map and can Sense
-			else if (rc.canSenseLocation(wallLocation)) {
+			if (rc.canSenseLocation(wallLocation)) {
 				RobotInfo robot = rc.senseRobotAtLocation(wallLocation);
 				boolean isOurLandscaper = (robot != null && robot.getType() == RobotType.LANDSCAPER && robot.getTeam() == rc.getTeam());
 				if (isOurLandscaper) {
@@ -99,6 +101,7 @@ public class Landscaper extends Unit {
 	}
 	
 	/**
+	 * Find one of the 8 spots on the wall to sit on.
 	 * 
 	 * @throws GameActionException
 	 */
@@ -151,7 +154,7 @@ public class Landscaper extends Unit {
     		}
 		}
 		// try to move towards the target location
-		path.simpleTargetMovement();
+		path.simpleTargetMovement(true);
 	}
 
 	// We are the watchers on the wall.
@@ -185,8 +188,8 @@ public class Landscaper extends Unit {
 		int bestPriority = 9999999;
 
 		// Sense all locations we might want to fill into.
-		for (int dx = -5; dx <= 5; dx++) {
-			for (int dy = -5; dy <= 5; dy++) {
+		for (int dx = -4; dx <= 4; dx++) {
+			for (int dy = -4; dy <= 4; dy++) {
 				MapLocation potentialFillSpot = rc.getLocation().translate(dx, dy);
 				// only care about locations we can sense
 				if (!rc.canSenseLocation(potentialFillSpot)) continue;
@@ -201,7 +204,7 @@ public class Landscaper extends Unit {
 				if (robot != null && robot.getType().isBuilding() && robot.getTeam() == rc.getTeam()) continue;
 				
 				// Fill in the closest square to HQ that needs it.
-				int priority = hqLocation.distanceSquaredTo(potentialFillSpot);
+				int priority = rc.getLocation().distanceSquaredTo(potentialFillSpot);
 				
 				// Actually fill in the closest one to us, tiebroken by distance to HQ.
 				if (bestPriority > priority) {
@@ -215,19 +218,18 @@ public class Landscaper extends Unit {
 	
 	// Terraform: build lattice while roaming
 	static void terraform() throws GameActionException {
-		System.out.println("Terraforming!");
 
 		// detect enemies
-		Team enemy = rc.getTeam().opponent();
-        RobotInfo[] enemies = rc.senseNearbyRobots(-1, enemy);
-        for (RobotInfo enemyRobot : enemies) {
-        	// If it's a building/
-        	if (enemyRobot.getType().isBuilding()) {
-        		mode = LandscaperMode.ATTACK;
-        		path.simpleTargetMovement(enemyRobot.getLocation());
-        		return;
-        	}
-        }
+//		Team enemy = rc.getTeam().opponent();
+//        RobotInfo[] enemies = rc.senseNearbyRobots(-1, enemy);
+//        for (RobotInfo enemyRobot : enemies) {
+//        	// If it's a building/
+//        	if (enemyRobot.getType().isBuilding()) {
+//        		mode = LandscaperMode.ATTACK;
+//        		path.simpleTargetMovement(enemyRobot.getLocation(), true);
+//        		return;
+//        	}
+//        }
 		MapLocation loc = rc.getLocation();
 		
 		// Not yet max dirt capacity.
@@ -238,8 +240,10 @@ public class Landscaper extends Unit {
 					if (tryDig(dir)) break;
 				}
 			}
+			// Else, move.
+			path.simpleTargetMovement(true);
 		}
-		// Has max dirt capacity -- terraform.
+		// Has max dirt capacity - start depositing dirt.
 		else {
 			if (terraformTarget == null) {
 				terraformTarget = findTerraformTarget();
@@ -257,6 +261,10 @@ public class Landscaper extends Unit {
 		}
 	}
 	
+	static public void rushDefense() {
+		
+	}
+
 	static public void attackNearbyEnemyBuildings() {
 		
 	}
@@ -271,8 +279,36 @@ public class Landscaper extends Unit {
 			tryDeposit(rc.getLocation().directionTo(dest));
 		}
 		else {
-			path.simpleTargetMovement(dest);
+			path.simpleTargetMovement(dest, true);
 		}
 	}
+	
+    /**
+     * Attempts to dig dirt in a given direction.
+     *
+     * @param dir The intended direction of refining
+     * @return true if a move was performed
+     * @throws GameActionException
+     */
+    static boolean tryDig(Direction dir) throws GameActionException {
+        if (rc.isReady() && rc.canDigDirt(dir)) {
+            rc.digDirt(dir);
+            return true;
+        } else return false;
+    }
+    
+    /**
+     * Attempts to deposit dirt in a given direction.
+     *
+     * @param dir The intended direction of refining
+     * @return true if a move was performed
+     * @throws GameActionException
+     */
+    static boolean tryDeposit(Direction dir) throws GameActionException {
+        if (rc.isReady() && rc.canDepositDirt(dir)) {
+            rc.depositDirt(dir);
+            return true;
+        } else return false;
+    }
 
 }

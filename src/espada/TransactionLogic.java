@@ -11,25 +11,21 @@ class TransactionLogic {
 	
 	static RobotController rc;
 	
+	public enum MessageType {
+		LOCATION,
+		UNIT_SPAWNED,
+		WALL_COMPLETE,
+	}
+	
 	static int lastBlockRead = 0;
 	
 	public TransactionLogic(RobotController _rc) {
 		rc = _rc;
 	}
 
-    // -------------------------
-    // TRANSACTION MESSAGE SUITE
-    // -------------------------
 	
 	static int secretKey = 0xE57ADA00;
     
-	public enum MessageType {
-		HQ_LOCATION,
-		ENEMY_HQ_LOCATION,
-		UNIT_SPAWNED,
-		WALL_COMPLETE,
-	}
-
     static int robotTypeToNum(RobotType type) {
     	switch (type) {
     		case HQ:						return 0;
@@ -46,6 +42,24 @@ class TransactionLogic {
 				break;
     	}
     	return -1;
+    }
+    
+    static RobotType numToRobotType(int num) {
+    	switch (num) {
+    		case 0:						return RobotType.HQ;
+    		case 1:						return RobotType.MINER;
+    		case 2: 					return RobotType.REFINERY;
+    		case 3: 					return RobotType.VAPORATOR;
+    		case 4: 					return RobotType.DESIGN_SCHOOL;
+    		case 5: 					return RobotType.FULFILLMENT_CENTER;
+            case 6:         			return RobotType.LANDSCAPER;
+            case 7:     				return RobotType.DELIVERY_DRONE;
+            case 8:            			return RobotType.NET_GUN;
+			case 9:                     return RobotType.COW;
+			default:
+				break;
+    	}
+    	return RobotType.COW;
     }
     
     static int[] applyXORtoMessage(int[] message) {
@@ -66,38 +80,42 @@ class TransactionLogic {
      * @param cost
      * @throws GameActionException
      */
-    static void sendEnemyHQLocationMessage(MapLocation loc, int cost) throws GameActionException {
-    	int elevation = -1;
+    void sendLocationMessage(RobotInfo robotInfo, MapLocation loc, int cost) throws GameActionException {
+    	int elevation = -999;
     	// Try to get enemy location elevation
     	if (rc.canSenseLocation(loc)) {
     		elevation = rc.senseElevation(loc);
     	}
+    	
+    	int isFriendly = (rc.getTeam() == robotInfo.getTeam()) ? 1 : 0;
 
-    	int[] message = {1, MessageType.ENEMY_HQ_LOCATION.ordinal(), 0, 0, elevation, loc.x, loc.y};
+    	int[] message = {1, MessageType.LOCATION.ordinal(), isFriendly, robotTypeToNum(robotInfo.getType()), elevation, loc.x, loc.y};
     	rc.submitTransaction(applyXORtoMessage(message), cost);
     }
     
-    static void readEnemyHQLocationMessage(int[] message) throws GameActionException {
-    	Unit.enemyHQElevation = message[4];
-		Unit.enemyHQLocation = new MapLocation(message[5], message[6]);
+    static void readLocationMessage(int[] message) throws GameActionException {
+    	
+    	// Friendly HQ.
+    	
+    	int isFriendly = message[2];
+    	RobotType type = numToRobotType(message[3]);
+    	int elevation = message[4];
+    	MapLocation location = new MapLocation(message[5], message[6]);
+   
+    	// Friendly HQ.
+    	if (type == RobotType.HQ && isFriendly == 1) {
+    		Unit.hqElevation = elevation;
+    		Unit.hqLocation = location;
+    		
+    	}
+    	// Enemy HQ.
+    	if (type == RobotType.HQ && isFriendly == 0) {
+    		Unit.enemyHQElevation = elevation;
+			Unit.enemyHQLocation = location;
+    	}
+		
     }
-    
-    /**
-     * Announces to the world where the HQ is.
-     * Should only be called by HQ.
-     * 
-     * @param cost
-     * @throws GameActionException 
-     */
-    void sendHQLocationMessage(MapLocation loc, int cost) throws GameActionException {
-    	int[] message = {1, MessageType.HQ_LOCATION.ordinal(), 0, 0, rc.senseElevation(loc), loc.x, loc.y};
-    	rc.submitTransaction(applyXORtoMessage(message), cost);
-    }
-    static void readHQLocationMessage(int[] message) throws GameActionException {
-    	Unit.hqElevation = message[4];
-		Unit.hqLocation = new MapLocation(message[5], message[6]);
-    }
-    
+
     /**
      * Refinery Location Messages have type == 7.
      * @param t
@@ -110,8 +128,7 @@ class TransactionLogic {
     		return;
     	}
 
-    	if(message[1] == MessageType.HQ_LOCATION.ordinal()) readHQLocationMessage(message);
-    	if(message[1] == MessageType.ENEMY_HQ_LOCATION.ordinal()) readEnemyHQLocationMessage(message);
+    	if(message[1] == MessageType.LOCATION.ordinal()) readLocationMessage(message);
     }
     
     void readBlock(Transaction[] ts) throws GameActionException {

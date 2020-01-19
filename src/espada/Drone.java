@@ -6,57 +6,201 @@ public class Drone extends Unit {
 
 	public enum DroneMode {
 		ROAM,
-		ROAM_HOLDING_ENEMY,
+		HOLDING_ENEMY,
 		AWAITING_STRIKE,
 		SWARM,
 	}
-
-	MapLocation enemyHQLocation;
 	
+	static final int safeRadiusFromHQ = 15;
+	static final int swarmRound = 1500;
+
+	// Turn this to true to let path.simpleTargetMovement() work.
+	static boolean yoloMode = false;
+
+	DroneMode mode = DroneMode.ROAM;
+	MapLocation pickUpLocation;
+	MapLocation dropOffLocation;
+	MapLocation lastFloodedTile;
+
 	public Drone(RobotController _rc) {
 		super(_rc);
 		// TODO Auto-generated constructor stub
 	}
 	
+	
+	/**
+	 * Senses nearby enemies
+	 * 
+	 * @return Closest enemy landscaper
+	 * @throws GameActionException
+	 */
+	public RobotInfo senseEnemies() throws GameActionException {
+		MapLocation loc = rc.getLocation();
+        RobotInfo[] robots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+        
+        
+        // Look at all the enemy robots.
+        RobotInfo closestEnemyRobot = null;
+        int closestDistance = 999999999;
+        for (RobotInfo robot : robots) {
+        	// If found enemy HQ...
+        	if (robot.getType() == RobotType.HQ && enemyHQLocation == null) {
+        		enemyHQLocation = robot.getLocation();
+        		txn.sendLocationMessage(robot, enemyHQLocation, Math.min(10, rc.getTeamSoup()));
+        	}
+        	
+        	// Get those landscapers.
+        	if (robot.getType() == RobotType.LANDSCAPER && robot.getLocation().distanceSquaredTo(loc) < closestDistance) {
+        		closestDistance = robot.getLocation().distanceSquaredTo(loc);
+        		closestEnemyRobot = robot;
+        	}
+        }
+        
+        return closestEnemyRobot;
+	}
+	
+	/**
+	 * Roaming: trying to find the opponent base.
+	 * @throws GameActionException 
+	 */
+	public void roam(MapLocation loc) throws GameActionException {
+		RobotInfo robot = senseEnemies();
+		if (robot != null) {
+			if (tryPickUp(robot.getID())) {
+				mode = DroneMode.HOLDING_ENEMY;
+			}
+			else {
+				path.setTarget(robot.getLocation());
+			}
+		}
+		path.simpleTargetMovement(loc);
+	}
+
+	public MapLocation getClosestKnownWaterTile() throws GameActionException {
+		MapLocation loc = rc.getLocation();
+		
+		int lowestDistance = 99999;
+		MapLocation bestDropTile = null;
+
+    	for (int dx = -4; dx <= 4; dx++) {
+    		for (int dy = -4; dy <= 4; dy++) {
+    			
+    			MapLocation dropTile = loc.translate(dx, dy);
+    			if (!rc.canSenseLocation(dropTile)) continue;
+
+    			if (rc.senseFlooding(dropTile) && loc.distanceSquaredTo(dropTile) > lowestDistance) {
+    				bestDropTile = dropTile;
+    				lowestDistance = loc.distanceSquaredTo(dropTile);
+    			}
+    		}
+    	}
+    	
+    	if (bestDropTile == null) return lastFloodedTile;
+    	lastFloodedTile = bestDropTile;
+    	return bestDropTile;
+	}
+	
+	/**
+	 * Move towards the dropOffLocation, and drop off when close enough.
+	 * @throws GameActionException
+	 */
+	public void navigateToDropOff() throws GameActionException {
+    	MapLocation loc = rc.getLocation();
+		if (loc.isAdjacentTo(dropOffLocation)) {
+			tryDrop(loc.directionTo(dropOffLocation));
+		}
+		else {
+			path.simpleTargetMovement(dropOffLocation);
+		}
+	}
+
+	/**
+	 * Holding enemy unit: find nearest water to dump to.
+	 * @throws GameActionException 
+	 * 
+	 */
+	public void holdingEnemyUnit() throws GameActionException {
+		dropOffLocation = getClosestKnownWaterTile();
+		if (dropOffLocation != null) {
+			navigateToDropOff();
+		}
+		else {
+			path.simpleTargetMovement();
+		}
+	}
+	
+	public void awaitingStrike() throws GameActionException {
+		rc.setIndicatorLine(rc.getLocation(), enemyHQLocation, 255, 0, 0);
+		path.simpleTargetMovement(enemyHQLocation);
+	}
+	
 	@Override
 	public void run() throws GameActionException {
-        Team enemy = rc.getTeam().opponent();
-        if (!rc.isCurrentlyHoldingUnit()) {
-            // See if there are any enemy robots within striking range (distance 1 from lumberjack's radius)
-            RobotInfo[] robots = rc.senseNearbyRobots(GameConstants.DELIVERY_DRONE_PICKUP_RADIUS_SQUARED, enemy);
-            
-            for (RobotInfo robot : robots) {
-            	if (robot.getType() == RobotType.HQ) {
-            		enemyHQLocation = robot.getLocation();
-            	}
-            }
-            if (robots.length > 0) {
-                // Pick up a first robot within range
-                if (rc.canPickUpUnit(robots[0].getID())) {
-                	rc.pickUpUnit(robots[0].getID());
-                }
-            }
-        }
-        else {
-        	MapLocation loc = rc.getLocation();
-        	for (int dx = -7; dx <= 7; dx++) {
-        		for (int dy = -7; dy <= 7; dy++) {
-        			
-        			MapLocation dropTile = loc.translate(dx, dy);
-        			if (!rc.canSenseLocation(dropTile)) continue;
+		
+		// Catch up on messages.
+		txn.updateToLatestBlock();
+		
+		// Check if any of the adjacent blocks are water.
+		lastFloodedTile = getClosestKnownWaterTile();
+		
+		if (rc.isCurrentlyHoldingUnit()) {
+			mode = DroneMode.HOLDING_ENEMY;
+		}
+		else if (enemyHQLocation != null) {
+			if (rc.getRoundNum() >= swarmRound) mode = DroneMode.SWARM;
+			else mode = DroneMode.AWAITING_STRIKE;
+		}
+		else {
+			mode = DroneMode.ROAM;
+		}
 
-        			if (rc.senseFlooding(dropTile)) {
-        				if (loc.isAdjacentTo(dropTile)) {
-        					rc.dropUnit(loc.directionTo(dropTile));
-        				}
-        				else {
-        					path.tryMove(loc.directionTo(dropTile));
-        				}
-        			}
-        		}
-        	}
+        switch(mode) {
+        case ROAM:
+        	roam(null);
+        	break;
+        case HOLDING_ENEMY:
+        	holdingEnemyUnit();
+        	break;
+		case AWAITING_STRIKE:
+			awaitingStrike();
+			break;
+		case SWARM:
+			yoloMode = true;
+			roam(enemyHQLocation);
+			break;
+		default:
+			break;
+        	
         }
         path.simpleTargetMovement();
 	}
-
+	
+	
+    /**
+     * Attempts to pick up a unit with given ID.
+     *
+     * @param dir The intended direction of refining
+     * @return true if a move was performed
+     * @throws GameActionException
+     */
+    static boolean tryPickUp(int id) throws GameActionException {
+        if (rc.isReady() && rc.canPickUpUnit(id)) {
+            rc.pickUpUnit(id);;
+            return true;
+        } else return false;
+    }
+    
+    /**
+     * Attempts drop unit in given direction.
+     *
+     * @param dir The intended direction of refining
+     * @return true if a move was performed
+     * @throws GameActionException
+     */
+    static boolean tryDrop(Direction dir) throws GameActionException {
+        if (rc.isReady() && rc.canDropUnit(dir)) {
+            rc.dropUnit(dir);
+            return true;
+        } else return false;
+    }
 }

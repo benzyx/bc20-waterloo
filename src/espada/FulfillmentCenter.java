@@ -10,7 +10,7 @@ public class FulfillmentCenter extends Unit {
 	
 	@Override
 	public void run() throws GameActionException {
-        if (rc.getTeamSoup() > 800 && Math.random() < 0.1) {
+        if (rc.getTeamSoup() > 300 && Math.random() < 0.1) {
         	for (Direction dir : directions) {
         		tryBuild(RobotType.DELIVERY_DRONE, dir);
         	}
