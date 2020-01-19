@@ -28,7 +28,7 @@ class PathingLogic {
     // 
     static MapLocation targetLocation;
     
-    static Direction nextClockwiseDirection(Direction dir) {
+    static Direction nextCWDirection(Direction dir) {
     	switch (dir) {
     		case NORTH: 	return Direction.NORTHEAST;
     		case NORTHEAST: return Direction.EAST;
@@ -38,6 +38,21 @@ class PathingLogic {
     		case SOUTHWEST: return Direction.WEST;
     		case WEST:      return Direction.NORTHWEST;
     		case NORTHWEST: return Direction.NORTH;
+    		case CENTER:    return Direction.CENTER;
+    		default: return Direction.CENTER;
+    	}
+    }
+    
+    static Direction prevCWDirection(Direction dir) {
+    	switch (dir) {
+    		case NORTH: 	return Direction.NORTHWEST;
+    		case NORTHEAST: return Direction.NORTH;
+    		case EAST: 		return Direction.NORTHEAST;
+    		case SOUTHEAST: return Direction.EAST;
+    		case SOUTH:		return Direction.SOUTHEAST;
+    		case SOUTHWEST: return Direction.SOUTH;
+    		case WEST:      return Direction.SOUTHWEST;
+    		case NORTHWEST: return Direction.WEST;
     		case CENTER:    return Direction.CENTER;
     		default: return Direction.CENTER;
     	}
@@ -131,9 +146,15 @@ class PathingLogic {
     	Direction dir = loc.directionTo(targetLocation);
     	boolean success = (!onLattice || Unit.onLatticeTiles(targetLocation)) && !alreadyVisitedOnPath(targetLocation) && tryMove(loc.directionTo(targetLocation));
     	int tries = 7;
+    	Direction cw = dir;
+    	Direction ccw = dir;
     	while (tries > 0 && !success) {
-    		dir = nextClockwiseDirection(dir);
-    		success = (!onLattice || Unit.onLatticeTiles(loc.add(dir))) && !alreadyVisitedOnPath(loc.add(dir)) && tryMove(dir);
+    		cw = nextCWDirection(cw);
+    		success = (!onLattice || Unit.onLatticeTiles(loc.add(cw))) && !alreadyVisitedOnPath(loc.add(cw)) && tryMove(cw);
+    		tries--;
+    		if (tries == 0 || success) break;
+    		ccw = prevCWDirection(ccw);
+    		success = (!onLattice || Unit.onLatticeTiles(loc.add(ccw))) && !alreadyVisitedOnPath(loc.add(ccw)) && tryMove(ccw);
     		tries--;
     	}
     	

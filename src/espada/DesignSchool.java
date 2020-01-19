@@ -13,7 +13,7 @@ public class DesignSchool extends Unit {
 	@Override
 	public void run() throws GameActionException {
 		txn.updateToLatestBlock();
-		if (landscapersBuilt < 3 || (rc.getTeamSoup() > 300 && Math.random() < 0.2)) {
+		if (rc.getTeamSoup() > 300 && Math.random() < 0.2) {
     		for (Direction dir : directions) {
     			if (tryBuild(RobotType.LANDSCAPER, dir)) {
     				landscapersBuilt++;

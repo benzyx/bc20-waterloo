@@ -14,11 +14,11 @@ public class Miner extends Unit {
     static int buildingOrderIndex;
 
     static RobotType[] buildingOrder = {
-    	RobotType.REFINERY,
-    	RobotType.VAPORATOR,
-    	RobotType.VAPORATOR,
+        RobotType.VAPORATOR,
     	RobotType.DESIGN_SCHOOL,
+    	RobotType.REFINERY,
     	RobotType.FULFILLMENT_CENTER,
+    	RobotType.VAPORATOR,
     };
     
     static MapLocation lastSoupTile;
@@ -132,7 +132,7 @@ public class Miner extends Unit {
         
         // Don't stray too far from HQ!
         // Still want to stay on lattice though.
-        if (rc.getRoundNum() < 200 && rc.getLocation().distanceSquaredTo(hqLocation) > 32) {
+        if (rc.getRoundNum() < 300 && rc.getLocation().distanceSquaredTo(hqLocation) > 25) {
         	Direction dir = rc.getLocation().directionTo(hqLocation);
         	if (onLatticeTiles(rc.getLocation().add(dir))) path.tryMove(dir);
         }

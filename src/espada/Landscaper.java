@@ -151,7 +151,8 @@ public class Landscaper extends Unit {
     		}
 		}
 		// try to move towards the target location
-		path.simpleTargetMovement(true);
+		// DO NOT use onLattice move here...
+		path.simpleTargetMovement();
 	}
 
 	// We are the watchers on the wall.

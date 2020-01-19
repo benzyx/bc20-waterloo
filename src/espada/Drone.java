@@ -12,7 +12,7 @@ public class Drone extends Unit {
 	}
 	
 	static final int safeRadiusFromHQ = 15;
-	static final int swarmRound = 1500;
+	static final int swarmRound = 1200;
 
 	// Turn this to true to let path.simpleTargetMovement() work.
 	static boolean yoloMode = false;
@@ -49,8 +49,12 @@ public class Drone extends Unit {
         		txn.sendLocationMessage(robot, enemyHQLocation, Math.min(10, rc.getTeamSoup()));
         	}
         	
-        	// Get those landscapers.
+        	// Get those landscapers (and maybe Miners).
         	if (robot.getType() == RobotType.LANDSCAPER && robot.getLocation().distanceSquaredTo(loc) < closestDistance) {
+        		closestDistance = robot.getLocation().distanceSquaredTo(loc);
+        		closestEnemyRobot = robot;
+        	}
+        	else if (robot.getType() == RobotType.MINER && robot.getLocation().distanceSquaredTo(loc) * 3 < closestDistance) {
         		closestDistance = robot.getLocation().distanceSquaredTo(loc);
         		closestEnemyRobot = robot;
         	}
@@ -156,7 +160,7 @@ public class Drone extends Unit {
 			mode = DroneMode.HOLDING_ENEMY;
 		}
 		else if (enemyHQLocation != null) {
-			if (rc.getRoundNum() >= swarmRound) mode = DroneMode.SWARM;
+			if (rc.getRoundNum() >= swarmRound && (rc.getRoundNum() % swarmRound < 100)) mode = DroneMode.SWARM;
 			else mode = DroneMode.AWAITING_STRIKE;
 		}
 		else {
@@ -171,10 +175,13 @@ public class Drone extends Unit {
         	holdingEnemyUnit();
         	break;
 		case AWAITING_STRIKE:
-			awaitingStrike();
+			yoloMode = false;
+			rc.setIndicatorLine(rc.getLocation(), enemyHQLocation, 255, 0, 0);
+			roam(enemyHQLocation);
 			break;
 		case SWARM:
 			yoloMode = true;
+			rc.setIndicatorLine(rc.getLocation(), enemyHQLocation, 0, 255, 0);
 			roam(enemyHQLocation);
 			break;
 		default:
