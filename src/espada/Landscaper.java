@@ -13,32 +13,29 @@ public class Landscaper extends Unit {
     	ATTACK,
     	RUSH_DEFENSE,
     	EARLY_RUSH,
+    	WALL_V2,
     };
     
     static LandscaperMode mode = LandscaperMode.FIND_WALL;
 
     static MapLocation targetWallLocation = null;
     static MapLocation spawnLocation = null;
-    static boolean allWallFilled = false;
- 
-    
+    static boolean innerWallComplete = false;
     static MapLocation terraformTarget = null;
     
 	public Landscaper(RobotController _rc) throws GameActionException {
 		super(_rc);
     	mode = LandscaperMode.FIND_WALL;
     	spawnLocation = rc.getLocation();
-
-    	
-//    	if (rc.getRoundNum() < 100) {
-//    		mode = LandscaperMode.EARLY_RUSH;
-//    	}
 	}
+	
 	
 	@Override
 	public void run() throws GameActionException {    
     	txn.updateToLatestBlock();
     	
+    	// On wall means on a tile adjacent to the wall. No other way around it I think.
+
     	switch (mode) {
     	case FIND_WALL:
     		findWall();
@@ -95,7 +92,7 @@ public class Landscaper extends Unit {
 		}
 		
 		if (wallPositionFilledCount == 8) {
-			allWallFilled = true;
+			innerWallComplete = true;
 		}
 		return bestLocation;
 	}
@@ -148,7 +145,7 @@ public class Landscaper extends Unit {
     			path.setTarget(hqLocation);
     			targetWallLocation = null;
        			// If all 8 wall spots are confirmed occupied, then become a roamer.
-    			if (allWallFilled) {
+    			if (innerWallComplete) {
         			mode = LandscaperMode.ROAM;
         		}
     		}
@@ -162,6 +159,7 @@ public class Landscaper extends Unit {
 		
 		MapLocation loc = rc.getLocation();
 		rc.setIndicatorDot(rc.getLocation(), 255, 255, 255);
+		
 		// If carrying ANY dirt, deposit it onto ourselves. Build a wall.
 		if (rc.getDirtCarrying() > 0) {
 			tryDeposit(Direction.CENTER);
@@ -175,7 +173,7 @@ public class Landscaper extends Unit {
 			for (Direction dir : directions) {
 				MapLocation potentialDigSpot = loc.add(dir);
 				// On the map and not HQ.
-				if (rc.onTheMap(potentialDigSpot) && !potentialDigSpot.equals(hqLocation)) {
+				if (rc.onTheMap(potentialDigSpot) && !potentialDigSpot.equals(hqLocation) && !potentialDigSpot.isAdjacentTo(hqLocation)) {
 					if(tryDig(dir)) break;
 				}
 			}
@@ -248,6 +246,7 @@ public class Landscaper extends Unit {
 			if (terraformTarget == null) {
 				terraformTarget = findTerraformTarget();
 			}
+
 			if (terraformTarget != null) {
 				// Check if the target is done.
 				if (rc.canSenseLocation(terraformTarget) && rc.senseElevation(terraformTarget) >= latticeElevation) {
@@ -255,8 +254,14 @@ public class Landscaper extends Unit {
 				}
 				rc.setIndicatorLine(rc.getLocation(), terraformTarget, 192, 192, 0);
 				navigateToDeposit(terraformTarget);
-				
-				
+			}
+			else {
+				if (enemyHQLocation != null) {
+					path.simpleTargetMovement(enemyHQLocation);
+				}
+				else {
+					path.simpleTargetMovement();
+				}
 			}
 		}
 	}

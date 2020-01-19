@@ -113,12 +113,18 @@ public class Miner extends Unit {
     	}	
     }
     
+    static int lateFullfillmentCenter = 0;
     static void primaryBuilder() throws GameActionException {
 		rc.setIndicatorDot(rc.getLocation(), 128, 0, 0);
         if (buildingOrderIndex < buildingOrder.length && buildingOrder[buildingOrderIndex].cost < rc.getTeamSoup()) {
         	MapLocation built = smartBuild(buildingOrder[buildingOrderIndex]);
             if (built != null) buildingOrderIndex++;
             
+        }
+        
+        if (buildingOrderIndex == buildingOrder.length && rc.getRoundNum() > 600 && rc.getTeamSoup() >= RobotType.FULFILLMENT_CENTER.cost && lateFullfillmentCenter < 2) {
+        	MapLocation built = smartBuild(RobotType.FULFILLMENT_CENTER);
+        	if (built != null) lateFullfillmentCenter++;
         }
         if (buildingOrderIndex == buildingOrder.length && rc.getRoundNum() > 150 && rc.getTeamSoup() >= RobotType.VAPORATOR.cost && Math.random() > 0.1) {
         	smartBuild(RobotType.VAPORATOR);
@@ -158,8 +164,6 @@ public class Miner extends Unit {
 
     static void minerMineSoup() throws GameActionException {
 
-    	System.out.println("Trying to mine soup!");
-
     	MapLocation loc = rc.getLocation();
     	MapLocation soupLoc = findSoup();
         // found some soup!
@@ -169,7 +173,6 @@ public class Miner extends Unit {
         	if (soupLoc.isAdjacentTo(loc)) {
         		tryMine(loc.directionTo(soupLoc));
         	}
-        	
         	// If we are not next to the soup, we will move towards it.
         	else {
         		path.simpleTargetMovement(soupLoc);

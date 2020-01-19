@@ -170,7 +170,7 @@ class PathingLogic {
     }
     
     void setTarget(MapLocation loc) {
-    	if (!loc.equals(targetLocation)) resetTarget();
+    	if (loc == null || !loc.equals(targetLocation)) resetTarget();
     	targetLocation = loc;
     }
 }

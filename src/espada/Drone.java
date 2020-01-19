@@ -73,7 +73,14 @@ public class Drone extends Unit {
 				path.setTarget(robot.getLocation());
 			}
 		}
-		path.simpleTargetMovement(loc);
+		
+		if (loc == null) {
+			path.simpleTargetMovement();
+		}
+		else {
+			path.simpleTargetMovement(loc);
+		}
+		
 	}
 
 	public MapLocation getClosestKnownWaterTile() throws GameActionException {
@@ -88,7 +95,7 @@ public class Drone extends Unit {
     			MapLocation dropTile = loc.translate(dx, dy);
     			if (!rc.canSenseLocation(dropTile)) continue;
 
-    			if (rc.senseFlooding(dropTile) && loc.distanceSquaredTo(dropTile) > lowestDistance) {
+    			if (rc.senseFlooding(dropTile) && loc.distanceSquaredTo(dropTile) < lowestDistance) {
     				bestDropTile = dropTile;
     				lowestDistance = loc.distanceSquaredTo(dropTile);
     			}
@@ -122,9 +129,11 @@ public class Drone extends Unit {
 	public void holdingEnemyUnit() throws GameActionException {
 		dropOffLocation = getClosestKnownWaterTile();
 		if (dropOffLocation != null) {
+			rc.setIndicatorLine(rc.getLocation(), dropOffLocation, 255, 255, 255);
 			navigateToDropOff();
 		}
 		else {
+			System.out.println("dropOffLocation is none!");
 			path.simpleTargetMovement();
 		}
 	}

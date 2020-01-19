@@ -7,6 +7,7 @@ public class HQ extends Unit {
     static int minersProduced = 0;
 
     static final int initialMinersCount = 6;
+    static final int totalMinersNeeded = 20;
     /**
      * Hardcoded initial miner count
      * @param rc
@@ -29,7 +30,7 @@ public class HQ extends Unit {
 		txn.updateToLatestBlock();
 		
         // Otherwise, start trying to build miners if we have too much soup.
-        if (minersProduced < initialMinersCount || rc.getTeamSoup() > 300 && Math.random() < 0.1) {
+        if (minersProduced < initialMinersCount || minersProduced >= totalMinersNeeded && rc.getTeamSoup() > 300 && Math.random() < 0.1) {
         	for (Direction dir : directions) {
                 if (tryBuild(RobotType.MINER, dir)) {
                 	minersProduced++;
