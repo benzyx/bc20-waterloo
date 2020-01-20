@@ -103,7 +103,7 @@ public class Miner extends Unit {
     	default: break;
     	}
     }
-    
+
     /**
      * Intelligently builds a building to be on the lattice, and not adjacent to HQ.
      * @param robotType
@@ -111,6 +111,16 @@ public class Miner extends Unit {
      * @throws GameActionException
      */
     static MapLocation smartBuild(RobotType robotType) throws GameActionException{
+    	return smartBuild(robotType, false);
+    }
+    
+    /**
+     * Intelligently builds a building to be on the lattice, and not adjacent to HQ.
+     * @param robotType
+     * @return true if successfully builds, else false
+     * @throws GameActionException
+     */
+    static MapLocation smartBuild(RobotType robotType, boolean desperate) throws GameActionException{
     	for (Direction dir : directions) {
         	
         	// Do not build anything adjacent to our HQ.
@@ -123,6 +133,21 @@ public class Miner extends Unit {
             	return potentialBuildLocation;
             }
         }
+    	
+    	if (desperate) {
+    		
+    		// Fuck the lattice lmao.
+    		for (Direction dir : directions) {
+    			MapLocation potentialBuildLocation = rc.getLocation().add(dir);
+    			if (potentialBuildLocation.isAdjacentTo(hqLocation)) {
+            		continue;
+            	}
+                if (tryBuild(robotType, dir)) {
+                	incrementBuildCounters(robotType);
+                	return potentialBuildLocation;
+                }
+    		}
+    	}
     	return null;
     }
     
@@ -148,10 +173,17 @@ public class Miner extends Unit {
 		if (beingRushed && rc.getRoundNum() < 500) {
 			// Build a design school asap.
 			if (designSchoolsBuilt < 1) {
-				smartBuild(RobotType.DESIGN_SCHOOL);
+				smartBuild(RobotType.DESIGN_SCHOOL, true);
 			}
 			if (fulfillmentCentersBuilt < 1) {
-				smartBuild(RobotType.FULFILLMENT_CENTER);
+				smartBuild(RobotType.FULFILLMENT_CENTER, true);
+			}
+			// Build a design school asap.
+			if (designSchoolsBuilt < 2) {
+				smartBuild(RobotType.DESIGN_SCHOOL, true);
+			}
+			if (fulfillmentCentersBuilt < 2) {
+				smartBuild(RobotType.FULFILLMENT_CENTER, true);
 			}
 		}
 

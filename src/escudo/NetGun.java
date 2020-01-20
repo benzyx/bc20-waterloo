@@ -1,8 +1,6 @@
 package escudo;
 
-import battlecode.common.GameActionException;
-import battlecode.common.RobotController;
-import battlecode.common.RobotInfo;
+import battlecode.common.*;
 
 public class NetGun extends Unit {
 

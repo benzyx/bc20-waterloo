@@ -90,7 +90,7 @@ class TransactionLogic {
     	rc.submitTransaction(applyXORtoMessage(message), cost);
     }
     
-    void readRushDetectedMessage(int[] message) {
+    static void readRushDetectedMessage(int[] message) {
     	// Friendly HQ.
     	MapLocation location = new MapLocation(message[5], message[6]);
 
@@ -109,7 +109,7 @@ class TransactionLogic {
     	rc.submitTransaction(applyXORtoMessage(message), cost);
     }
     
-    void readSpawnMessage(int[] message) throws GameActionException {
+    static void readSpawnMessage(int[] message) throws GameActionException {
 
     }
     
@@ -167,7 +167,9 @@ class TransactionLogic {
     	if (message[0] != 1) {
     		return;
     	}
-    	if(message[1] == MessageType.LOCATION.ordinal()) readLocationMessage(message);
+    	if (message[1] == MessageType.LOCATION.ordinal()) readLocationMessage(message);
+    	if (message[1] == MessageType.RUSH_DETECTED.ordinal()) readRushDetectedMessage(message);
+    	if (message[1] == MessageType.UNIT_SPAWNED.ordinal()) readSpawnMessage(message);
     }
     
     void readBlock(Transaction[] ts) throws GameActionException {

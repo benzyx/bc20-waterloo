@@ -14,7 +14,7 @@ public class DesignSchool extends Unit {
 	public void run() throws GameActionException {
 		txn.updateToLatestBlock();
 		
-		if (beingRushed && rc.getRoundNum() < 500 && rc.getTeamSoup() >= RobotType.LANDSCAPER.cost) {
+		if (beingRushed && rc.getRoundNum() < 500 && rc.getTeamSoup() >= RobotType.LANDSCAPER.cost && Math.random() < 0.5) {
 			for (Direction dir : directions) {
     			if (tryBuild(RobotType.LANDSCAPER, dir)) {
     				landscapersBuilt++;

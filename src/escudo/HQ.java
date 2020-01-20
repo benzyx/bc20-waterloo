@@ -22,15 +22,6 @@ public class HQ extends Unit {
     	// Broadcast our current location
     	txn.sendLocationMessage(rc.senseRobotAtLocation(hqLocation), hqLocation, 15);
 	}
-	
-	public void senseEnemies() {
-		RobotInfo[] robots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-		for (RobotInfo robot : robots) {
-			if (robot.getType() == RobotType.LANDSCAPER) {
-				
-			}
-		}
-	}
 
 	@Override
 	public void run() throws GameActionException {
@@ -38,7 +29,7 @@ public class HQ extends Unit {
 		
 		// Produce Miners
         // Otherwise, start trying to build miners if we have too much soup.
-        if (minersProduced < initialMinersCount || minersProduced < totalMinersNeeded && rc.getTeamSoup() > 300 && Math.random() < 0.1) {
+        if (minersProduced < initialMinersCount || minersProduced < totalMinersNeeded && rc.getTeamSoup() > 550 && Math.random() < 0.5) {
         	for (Direction dir : directions) {
                 if (tryBuild(RobotType.MINER, dir)) {
                 	minersProduced++;

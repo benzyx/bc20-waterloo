@@ -173,41 +173,41 @@ public class Miner extends Unit {
 		if (beingRushed && rc.getRoundNum() < 500) {
 			// Build a design school asap.
 			if (designSchoolsBuilt < 1) {
-				MapLocation loc = smartBuild(RobotType.DESIGN_SCHOOL);
+				smartBuild(RobotType.DESIGN_SCHOOL, true);
 			}
 			if (fulfillmentCentersBuilt < 1) {
-				smartBuild(RobotType.FULFILLMENT_CENTER);
+				smartBuild(RobotType.FULFILLMENT_CENTER, true);
 			}
 			// Build a design school asap.
-			if (designSchoolsBuilt < 2) {
-				smartBuild(RobotType.DESIGN_SCHOOL);
+			if (designSchoolsBuilt < 2 && rc.getTeamSoup() > 160) {
+				smartBuild(RobotType.DESIGN_SCHOOL, true);
 			}
-			if (fulfillmentCentersBuilt < 2) {
-				smartBuild(RobotType.FULFILLMENT_CENTER);
+			if (fulfillmentCentersBuilt < 2 && rc.getTeamSoup() > 160) {
+				smartBuild(RobotType.FULFILLMENT_CENTER, true);
 			}
 		}
 
         if (buildingOrderIndex < buildingOrder.length && buildingOrder[buildingOrderIndex].cost < rc.getTeamSoup()) {
-        	MapLocation built = smartBuild(buildingOrder[buildingOrderIndex]);
+        	MapLocation built = smartBuild(buildingOrder[buildingOrderIndex], true);
             if (built != null) buildingOrderIndex++;
         }
         
         if (buildingOrderIndex == buildingOrder.length && rc.getRoundNum() > 600 && rc.getTeamSoup() >= RobotType.FULFILLMENT_CENTER.cost && lateFullfillmentCenter < 2) {
-        	MapLocation built = smartBuild(RobotType.FULFILLMENT_CENTER);
+        	MapLocation built = smartBuild(RobotType.FULFILLMENT_CENTER, true);
         	if (built != null) lateFullfillmentCenter++;
         }
         if (buildingOrderIndex == buildingOrder.length && rc.getRoundNum() > 600 && rc.getTeamSoup() >= RobotType.DESIGN_SCHOOL.cost && lateDesignSchool < 2) {
-        	MapLocation built = smartBuild(RobotType.DESIGN_SCHOOL);
+        	MapLocation built = smartBuild(RobotType.DESIGN_SCHOOL, true);
         	if (built != null) lateDesignSchool++;
         }
         
         if (buildingOrderIndex == buildingOrder.length && rc.getRoundNum() > 150 && rc.getTeamSoup() >= RobotType.VAPORATOR.cost && Math.random() > 0.5) {
-        	smartBuild(RobotType.VAPORATOR);
+        	smartBuild(RobotType.VAPORATOR, true);
         }
         
         // Don't stray too far from HQ!
         // Still want to stay on lattice though.
-        if (rc.getRoundNum() < 500 && rc.getLocation().distanceSquaredTo(hqLocation) > 25) {
+        if (rc.getRoundNum() < 250 && rc.getLocation().distanceSquaredTo(hqLocation) > 4) {
         	Direction dir = rc.getLocation().directionTo(hqLocation);
         	if (onLatticeTiles(rc.getLocation().add(dir))) path.tryMove(dir);
         }

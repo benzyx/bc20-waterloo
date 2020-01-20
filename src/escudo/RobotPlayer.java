@@ -1,7 +1,5 @@
 package escudo;
 import battlecode.common.*;
-import espada.*;
-
 public strictfp class RobotPlayer {
 
     static RobotController rc;

@@ -1,0 +1,2 @@
+zip zipfiles/escudo.zip src/escudo/*
+zip zipfiles/espada.zip src/espada/*

@@ -220,6 +220,13 @@ public class Landscaper extends Unit {
 		// If carrying ANY dirt, deposit it onto ourselves
 		if (rc.getDirtCarrying() > 0) {
 			
+			RobotInfo[] robots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+			for (RobotInfo robot : robots) {
+				if (robot.getType().isBuilding() && robot.getLocation().isAdjacentTo(loc)) {
+					tryDeposit(loc.directionTo(robot.getLocation()));
+				}
+			}
+			
 			// If it's before round 500 -- wall can still be built in conventional ways (people walking onto it). Only build self.
 			if (rc.getRoundNum() < wallCutoffRound) {
 				tryDeposit(Direction.CENTER);

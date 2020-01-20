@@ -14,7 +14,7 @@ public class FulfillmentCenter extends Unit {
 	public void run() throws GameActionException {
 		txn.updateToLatestBlock();
 		
-		if (beingRushed && rc.getRoundNum() < 500 && rc.getTeamSoup() >= RobotType.DELIVERY_DRONE.cost) {
+		if (beingRushed && rc.getRoundNum() < 500 && rc.getTeamSoup() >= RobotType.DELIVERY_DRONE.cost && Math.random() < 0.5) {
 			for (Direction dir : directions) {
     			if (tryBuild(RobotType.DELIVERY_DRONE, dir)) {
     				dronesBuilt++;
