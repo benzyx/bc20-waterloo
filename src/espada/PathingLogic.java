@@ -76,7 +76,17 @@ class PathingLogic {
     	MapLocation moveSpot = rc.getLocation().add(dir);
     	if (rc.getType() == RobotType.DELIVERY_DRONE) {
     		if (Unit.enemyHQLocation == null) return true;
-    		return (Drone.yoloMode || moveSpot.distanceSquaredTo(Unit.enemyHQLocation) > Drone.safeRadiusFromHQ);
+    		
+    		boolean canMove = true;
+    		
+    		if (!Drone.yoloMode) {
+    			if (moveSpot.distanceSquaredTo(Unit.enemyHQLocation) <= Drone.safeRadius) canMove = false;
+    			for (int i = 0; i < Drone.netGunCount; i++) {
+    				if (moveSpot.distanceSquaredTo(Drone.netGuns[i]) <= Drone.safeRadius) canMove = false;
+        		}
+    		}
+    		
+    		return canMove;
     	}
     	else {
         	return (rc.canSenseLocation(moveSpot) && !rc.senseFlooding(moveSpot));

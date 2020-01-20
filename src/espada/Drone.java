@@ -11,8 +11,10 @@ public class Drone extends Unit {
 		SWARM,
 	}
 	
-	static final int safeRadiusFromHQ = 15;
+	static final int safeRadius = 15;
 	static final int swarmRound = 1200;
+	
+	RobotInfo robotCarrying = null;
 
 	// Turn this to true to let path.simpleTargetMovement() work.
 	static boolean yoloMode = false;
@@ -22,8 +24,8 @@ public class Drone extends Unit {
 	MapLocation dropOffLocation;
 	MapLocation lastFloodedTile;
 
-	public MapLocation[] netGuns = new MapLocation[20];
-	public int netGunCount = 0;
+	static public MapLocation[] netGuns = new MapLocation[50];
+	static public int netGunCount = 0;
 
 	public Drone(RobotController _rc) {
 		super(_rc);
@@ -74,6 +76,7 @@ public class Drone extends Unit {
 		RobotInfo robot = senseEnemies();
 		if (robot != null) {
 			if (tryPickUp(robot.getID())) {
+				robotCarrying = robot;
 				path.resetTarget();
 			}
 			else {
@@ -160,16 +163,33 @@ public class Drone extends Unit {
 		path.simpleTargetMovement(enemyHQLocation);
 	}
 	
+	
+	/**
+	 * Lets drones dodge net guns.
+	 * @throws GameActionException
+	 */
+	public void senseNetGuns() throws GameActionException {
+		netGunCount = 0;
+		RobotInfo[] robots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+		for (RobotInfo robot : robots) {
+			if (robot.getType() == RobotType.NET_GUN) {
+				netGuns[netGunCount++] = robot.getLocation();
+			}
+		}
+	}
+
 	@Override
 	public void run() throws GameActionException {
 		
 		// Catch up on messages.
 		txn.updateToLatestBlock();
 		
+		senseNetGuns();
+
 		// Check if any of the adjacent blocks are water.
 		lastFloodedTile = getClosestKnownWaterTile();
 		
-		if (rc.isCurrentlyHoldingUnit()) {
+		if (rc.isCurrentlyHoldingUnit() && robotCarrying.getTeam() == rc.getTeam().opponent()) {
 			mode = DroneMode.HOLDING_ENEMY;
 		}
 		else if (enemyHQLocation != null) {
@@ -190,12 +210,49 @@ public class Drone extends Unit {
         	break;
 		case AWAITING_STRIKE:
 			yoloMode = false;
-			rc.setIndicatorLine(rc.getLocation(), enemyHQLocation, 255, 0, 0);
+			
+			if (!rc.isCurrentlyHoldingUnit()) {
+				RobotInfo[] robots = rc.senseNearbyRobots(-1, rc.getTeam());
+				// Friendly Landscaper which is not adjacent to either HQ.
+				for (RobotInfo robot : robots) {
+					if (robot.getType() == RobotType.LANDSCAPER &&
+							!robot.getLocation().isAdjacentTo(hqLocation) &&
+							!robot.getLocation().isAdjacentTo(enemyHQLocation)) {
+						
+						// Try to pick up or Move towards it.
+						if (tryPickUp(robot.getID())) {
+							robotCarrying = robot;
+							path.resetTarget();
+						}
+						else {
+							path.simpleTargetMovement(robot.getLocation());
+						}
+						break;
+					}
+				}
+			}
 			roam(enemyHQLocation);
 			break;
+
 		case SWARM:
 			yoloMode = true;
-			rc.setIndicatorLine(rc.getLocation(), enemyHQLocation, 0, 255, 0);
+			
+			// Holding a unit which is the same team as us and is a Landscaper.
+			if (rc.isCurrentlyHoldingUnit() && robotCarrying.getType() == RobotType.LANDSCAPER && robotCarrying.getTeam() == rc.getTeam()) {
+				for (Direction dir : directions) {
+					MapLocation potentialDropSpot = rc.getLocation().add(dir);
+					
+					// Can sense this spot, it's not flooding, it's empty, and it's next to the enemy HQ.
+					if (!rc.canSenseLocation(potentialDropSpot)) continue;
+					if (rc.senseFlooding(potentialDropSpot)) continue;
+					if (rc.senseRobotAtLocation(potentialDropSpot) != null) continue;
+					if (!potentialDropSpot.isAdjacentTo(enemyHQLocation)) continue;
+
+					// So if it's all clear to drop our landscaper near the enemy base, let's do it.
+					tryDrop(dir);
+					break;
+				}
+			}
 			roam(enemyHQLocation);
 			break;
 		default:

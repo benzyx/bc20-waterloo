@@ -232,11 +232,16 @@ public class Landscaper extends Unit {
 
 				for (Direction dir : directions) {
 					MapLocation wallSpot = loc.add(dir);
+					
+					// If its not on the map, GTFO.
+					if (!rc.onTheMap(wallSpot)) continue;
+					// If it's not adjacent to HQ, gtfo.
 					if (!wallSpot.isAdjacentTo(hqLocation)) continue;
+					// If it IS HQ, gtfo.
+					if (wallSpot.equals(hqLocation)) continue;
 					
 					RobotInfo robot = rc.senseRobotAtLocation(wallSpot);
 					if (robot != null && robot.getTeam() == rc.getTeam() && robot.getType() == RobotType.LANDSCAPER) continue;
-					if (wallSpot.equals(hqLocation)) continue;
 					if (!rc.canSenseLocation(wallSpot)) continue;
 					int elevation = rc.senseElevation(wallSpot);
 					if (elevation < lowestElevation) {
