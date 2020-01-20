@@ -14,16 +14,17 @@ class TransactionLogic {
 	public enum MessageType {
 		LOCATION,
 		UNIT_SPAWNED,
+		WALL_STATUS,
 		WALL_COMPLETE,
+		RUSH_DETECTED,
 	}
-	
+
 	static int lastBlockRead = 0;
 	
 	public TransactionLogic(RobotController _rc) {
 		rc = _rc;
 	}
 
-	
 	static int secretKey = 0xE57ADA00;
     
     static int robotTypeToNum(RobotType type) {
@@ -69,7 +70,12 @@ class TransactionLogic {
     	return message;
     }
     
-    static void sendBuildOrderMessage(int buildOrderIndex) throws GameActionException {
+    /**
+     * Spawn message
+     * @param buildOrderIndex
+     * @throws GameActionException
+     */
+    static void sendSpawnMessage(RobotType type) throws GameActionException {
     	
     }
     
@@ -127,7 +133,6 @@ class TransactionLogic {
     	if (message[0] != 1) {
     		return;
     	}
-
     	if(message[1] == MessageType.LOCATION.ordinal()) readLocationMessage(message);
     }
     

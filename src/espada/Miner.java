@@ -45,7 +45,8 @@ public class Miner extends Unit {
         	}
         }
         
-    	int bestSoupAmount = 0;
+        // By closest, not by amount.
+    	int bestDistanceSquared = 999999999;
 		MapLocation soupLoc = null;
 		
 		// Search for soup locally.
@@ -54,8 +55,8 @@ public class Miner extends Unit {
         		if (!rc.canSenseLocation(loc.translate(dx, dy))) continue;
         		
     			int soupAmount = rc.senseSoup(loc.translate(dx, dy));
-    			if (bestSoupAmount < soupAmount) {
-        			bestSoupAmount = soupAmount;
+    			if (soupAmount > 0 && bestDistanceSquared > loc.distanceSquaredTo(loc.translate(dx, dy))) {
+    				bestDistanceSquared = loc.distanceSquaredTo(loc.translate(dx, dy));
         			soupLoc = loc.translate(dx, dy);
         		}
         	}
@@ -137,7 +138,7 @@ public class Miner extends Unit {
         	if (onLatticeTiles(rc.getLocation().add(dir))) path.tryMove(dir);
         }
 
-        randomWalkOnLattice();
+        path.tryMove(randomDirection());
     }
     
     static void senseNearbyRefineries() throws GameActionException {
@@ -195,7 +196,7 @@ public class Miner extends Unit {
     		depositLocation = lastRefineryLocation;
     	}
     	// If HQ isn't too far away.
-    	else if (hqLocation != null && (rc.getTeamSoup() < RobotType.REFINERY.cost || loc.distanceSquaredTo(hqLocation) < 45)) {
+    	else if (hqLocation != null && (rc.getTeamSoup() < RobotType.REFINERY.cost || loc.distanceSquaredTo(hqLocation) < 30)) {
     		depositLocation = hqLocation;
     	}
     	else if (rc.getTeamSoup() >= RobotType.REFINERY.cost) {

@@ -10,8 +10,8 @@ public class FulfillmentCenter extends Unit {
 	
 	@Override
 	public void run() throws GameActionException {
-        if ((rc.getRoundNum() < 600 && rc.getTeamSoup() > 300 && Math.random() < 0.1) ||
-            (rc.getRoundNum() >= 600 && rc.getTeamSoup() > RobotType.DELIVERY_DRONE.cost)){
+        if ((rc.getRoundNum() < 900 && rc.getTeamSoup() > 300 && Math.random() < 0.1) ||
+            (rc.getRoundNum() >= 900 && rc.getTeamSoup() > RobotType.DELIVERY_DRONE.cost)){
         	for (Direction dir : directions) {
         		tryBuild(RobotType.DELIVERY_DRONE, dir);
         	}

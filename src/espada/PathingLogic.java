@@ -161,6 +161,7 @@ class PathingLogic {
     	// We are stuck... Randomize the destination I guess.
     	// actually, just reset the memory for path
     	if (!success) {
+    		// Actually. lets not reset the path memory.
     		resetPathMemory();
     	}
     }

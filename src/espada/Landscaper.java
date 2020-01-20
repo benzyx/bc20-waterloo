@@ -5,7 +5,7 @@ import battlecode.common.*;
 public class Landscaper extends Unit {
 
 	static final int latticeElevation = 7;
-
+	static final int wallCutoffRound = 500;
     enum LandscaperMode{
     	FIND_WALL,
     	ON_WALL,
@@ -20,8 +20,8 @@ public class Landscaper extends Unit {
 
     static MapLocation targetWallLocation = null;
     static MapLocation spawnLocation = null;
-    static boolean innerWallComplete = false;
     static MapLocation terraformTarget = null;
+    static MapLocation attackTarget = null;
     
 	public Landscaper(RobotController _rc) throws GameActionException {
 		super(_rc);
@@ -29,13 +29,64 @@ public class Landscaper extends Unit {
     	spawnLocation = rc.getLocation();
 	}
 	
+	public int priorityOfEnemyBuilding(RobotType type) {
+		switch(type) {
+		case DESIGN_SCHOOL:
+			return 10;
+		case NET_GUN:
+			return 9;
+		case HQ:
+			return 8;
+		default:
+			return 1;
+		}
+	}
 	
+	public MapLocation senseHighestPriorityNearbyEnemyBuilding() {
+		RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+		
+		int distance = 999999999;
+		int priority = 0;
+		MapLocation bestEnemyLoc = null;
+		
+		for (RobotInfo enemy : enemies) {
+			if (enemy.getType().isBuilding() &&
+					(priority < priorityOfEnemyBuilding(enemy.getType()) ||
+							(priority == priorityOfEnemyBuilding(enemy.getType()) &&
+							 distance > rc.getLocation().distanceSquaredTo(enemy.getLocation())))) {
+				priority = priorityOfEnemyBuilding(enemy.getType());
+				distance = rc.getLocation().distanceSquaredTo(enemy.getLocation());
+				bestEnemyLoc = enemy.getLocation();
+			}
+		}
+		return bestEnemyLoc;
+	}
+
 	@Override
 	public void run() throws GameActionException {    
     	txn.updateToLatestBlock();
     	
-    	// On wall means on a tile adjacent to the wall. No other way around it I think.
-
+    	// On wall means on a tile adjacent to the wall. No other way around it I think. Greedy approach is the most reliable in decentralized algorithms.
+    	MapLocation loc = rc.getLocation();
+    	
+    	if (loc.isAdjacentTo(hqLocation))
+    	{
+    		mode = LandscaperMode.ON_WALL;
+    	}
+    	else{
+    		attackTarget = senseHighestPriorityNearbyEnemyBuilding();
+    		if (senseHighestPriorityNearbyEnemyBuilding() != null) {
+    			mode = LandscaperMode.ATTACK;
+	    	}
+	    	else if (!wallComplete && rc.getRoundNum() <= wallCutoffRound) {
+	    		mode = LandscaperMode.FIND_WALL;
+	    	}
+	    	else {
+	    		mode = LandscaperMode.ROAM;
+	    	}
+    	}
+    	
+    	// Sense nearby enemies.
     	switch (mode) {
     	case FIND_WALL:
     		findWall();
@@ -44,7 +95,7 @@ public class Landscaper extends Unit {
     		onWall();
     		break;
 		case ATTACK:
-			attackNearbyEnemyBuildings();
+			attack(attackTarget);
 			break;
 		case ROAM:
 			terraform();
@@ -92,7 +143,7 @@ public class Landscaper extends Unit {
 		}
 		
 		if (wallPositionFilledCount == 8) {
-			innerWallComplete = true;
+			wallComplete = true;
 		}
 		return bestLocation;
 	}
@@ -145,7 +196,7 @@ public class Landscaper extends Unit {
     			path.setTarget(hqLocation);
     			targetWallLocation = null;
        			// If all 8 wall spots are confirmed occupied, then become a roamer.
-    			if (innerWallComplete) {
+    			if (wallComplete) {
         			mode = LandscaperMode.ROAM;
         		}
     		}
@@ -161,24 +212,63 @@ public class Landscaper extends Unit {
 		MapLocation loc = rc.getLocation();
 		rc.setIndicatorDot(rc.getLocation(), 255, 255, 255);
 		
-		// If carrying ANY dirt, deposit it onto ourselves. Build a wall.
+		// If carrying ANY dirt, deposit it onto ourselves
 		if (rc.getDirtCarrying() > 0) {
-			tryDeposit(Direction.CENTER);
+			
+			// If it's before round 500 -- wall can still be built in conventional ways (people walking onto it). Only build self.
+			if (rc.getRoundNum() < wallCutoffRound) {
+				tryDeposit(Direction.CENTER);
+			}
+			// Otherwise, deposit the dirt on the lowest of all adjacent tiles that are still on the wall.
+			// Then, if we can move onto 
+			else {
+				int lowestElevation = rc.senseElevation(loc);
+				Direction depositDir = Direction.CENTER;
+
+				for (Direction dir : directions) {
+					MapLocation wallSpot = loc.add(dir);
+					if (!wallSpot.isAdjacentTo(hqLocation)) continue;
+					if (rc.senseRobotAtLocation(wallSpot) != null) continue;
+					if (wallSpot.equals(hqLocation)) continue;
+					if (!rc.canSenseLocation(wallSpot)) continue;
+					int elevation = rc.senseElevation(wallSpot);
+					if (elevation < lowestElevation) {
+						lowestElevation = elevation;
+						depositDir = dir;
+					}
+				}
+				
+				// Move towards lower elevation.
+				if (depositDir != Direction.CENTER) {
+					path.tryMove(depositDir);
+				}
+				tryDeposit(depositDir);
+			}
 		}
-		// Otherwise, first try to dig from the designated spot.
-		else if (rc.onTheMap(loc.add(hqLocation.directionTo(loc)))) {
-			tryDig(hqLocation.directionTo(loc));
-		}
-		// Otherwise, it must be an edge case. Find a non-lattice point near by and dig from it.
-		else {
-			for (Direction dir : directions) {
-				MapLocation potentialDigSpot = loc.add(dir);
-				// On the map and not HQ.
-				if (rc.onTheMap(potentialDigSpot) && !potentialDigSpot.equals(hqLocation) && !potentialDigSpot.isAdjacentTo(hqLocation)) {
-					if(tryDig(dir)) break;
+		// No dirt, need to dig.
+		else{
+			// Heal the HQ if it's not at full health.
+			RobotInfo hqInfo = rc.senseRobotAtLocation(hqLocation);
+			if (hqInfo.getDirtCarrying() > 0) {
+				tryDig(loc.directionTo(hqLocation));
+			}
+			// Otherwise, first try to dig from the designated spot.
+			else if (rc.onTheMap(loc.add(hqLocation.directionTo(loc)))) {
+				tryDig(hqLocation.directionTo(loc));
+			}
+			// Otherwise, it must be an edge case. Find a non-lattice point near by and dig from it.
+			else {
+				for (Direction dir : directions) {
+					MapLocation potentialDigSpot = loc.add(dir);
+					// On the map and not HQ.
+					if (rc.onTheMap(potentialDigSpot) && !potentialDigSpot.equals(hqLocation) && !potentialDigSpot.isAdjacentTo(hqLocation)) {
+						if(tryDig(dir)) break;
+					}
 				}
 			}
 		}
+			
+
 	}
 	
 	static MapLocation findTerraformTarget() throws GameActionException {
@@ -249,12 +339,12 @@ public class Landscaper extends Unit {
 			}
 
 			if (terraformTarget != null) {
+				rc.setIndicatorLine(rc.getLocation(), terraformTarget, 192, 192, 0);
 				// Check if the target is done.
 				if (rc.canSenseLocation(terraformTarget) && rc.senseElevation(terraformTarget) >= latticeElevation) {
 					terraformTarget = findTerraformTarget();
 				}
-				rc.setIndicatorLine(rc.getLocation(), terraformTarget, 192, 192, 0);
-				navigateToDeposit(terraformTarget);
+				navigateToDeposit(terraformTarget, true);
 			}
 			else {
 				if (enemyHQLocation != null) {
@@ -270,8 +360,24 @@ public class Landscaper extends Unit {
 	static public void rushDefense() {
 		
 	}
-
-	static public void attackNearbyEnemyBuildings() {
+	
+	// Move towards and kill that bitch?
+	static public void attack(MapLocation attackTarget) throws GameActionException{
+		
+		System.out.println("I am in attack mode!");
+		MapLocation loc = rc.getLocation();
+		rc.setIndicatorLine(loc, attackTarget, 255, 255, 0);
+		if (rc.getDirtCarrying() == 0) {
+			// Find a non-Lattice tile that is not the HQ and try to dig there.
+			for (Direction dir : directions) {
+				if (!hqLocation.equals(rc.getLocation().add(dir)) && !onLatticeTiles(loc.add(dir))) {
+					if (tryDig(dir)) break;
+				}
+			}
+		}
+		else {
+			navigateToDeposit(attackTarget, false);
+		}
 		
 	}
 	
@@ -279,13 +385,13 @@ public class Landscaper extends Unit {
 		
 	}
 	
-	static public void navigateToDeposit(MapLocation dest) throws GameActionException {
+	static public void navigateToDeposit(MapLocation dest, boolean latticeOnly) throws GameActionException {
 		if (rc.getLocation().isAdjacentTo(dest)) {
 			// If adjacent, deposit should not fail unless not available for move.
 			tryDeposit(rc.getLocation().directionTo(dest));
 		}
 		else {
-			path.simpleTargetMovement(dest, true);
+			path.simpleTargetMovement(dest, latticeOnly);
 		}
 	}
 	

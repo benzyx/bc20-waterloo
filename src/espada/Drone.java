@@ -87,6 +87,12 @@ public class Drone extends Unit {
 		
 	}
 
+	/**
+	 * One caveat : cannot return the cell that's directly underneath for stupid reasons.
+	 * Drones can't drop units onto Direction.CENTER
+	 * @return
+	 * @throws GameActionException
+	 */
 	public MapLocation getClosestKnownWaterTile() throws GameActionException {
 		MapLocation loc = rc.getLocation();
 		
@@ -96,6 +102,8 @@ public class Drone extends Unit {
     	for (int dx = -4; dx <= 4; dx++) {
     		for (int dy = -4; dy <= 4; dy++) {
     			
+    			if (dx == 0 && dy == 0) continue;
+
     			MapLocation dropTile = loc.translate(dx, dy);
     			if (!rc.canSenseLocation(dropTile)) continue;
 
@@ -112,12 +120,13 @@ public class Drone extends Unit {
 	}
 	
 	/**
-	 * Move towards the dropOffLocation, and drop off when close enough.
+	 * Move towards the dropOffLocation, and drop off the unit we are holding when close enough.
 	 * @throws GameActionException
 	 */
 	public void navigateToDropOff() throws GameActionException {
     	MapLocation loc = rc.getLocation();
 		if (loc.isAdjacentTo(dropOffLocation)) {
+			System.out.println("Adjacent to dropoff!");
 			tryDrop(loc.directionTo(dropOffLocation));
 		}
 		else {
@@ -133,11 +142,12 @@ public class Drone extends Unit {
 	public void holdingEnemyUnit() throws GameActionException {
 		dropOffLocation = getClosestKnownWaterTile();
 		if (dropOffLocation != null) {
+			System.out.println("I am at: " + dropOffLocation);
+			System.out.println("dropOffLocation is: " + dropOffLocation);
 			rc.setIndicatorLine(rc.getLocation(), dropOffLocation, 255, 255, 255);
 			navigateToDropOff();
 		}
 		else {
-			System.out.println("dropOffLocation is none!");
 			path.simpleTargetMovement();
 		}
 	}

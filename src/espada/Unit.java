@@ -14,6 +14,8 @@ public class Unit {
     public static MapLocation hqLocation;
     public static int enemyHQElevation;
     public static MapLocation enemyHQLocation;
+    
+    public static boolean wallComplete = false;
 
     static final Direction[] directions = {
             Direction.NORTH,
