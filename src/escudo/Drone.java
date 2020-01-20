@@ -1,4 +1,4 @@
-package espada;
+package escudo;
 
 import battlecode.common.*;
 
