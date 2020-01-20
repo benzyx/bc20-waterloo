@@ -23,8 +23,9 @@ public class FulfillmentCenter extends Unit {
     		}
 		}
 		
-        if ((dronesBuilt < 15 && rc.getTeamSoup() > 300 && Math.random() < 0.1) ||
-            (dronesBuilt >= 15 && rc.getTeamSoup() > 600 && Math.random() < 0.3)){
+        if ((dronesBuilt < 15 && rc.getTeamSoup() > 300 && Math.random() < 0.5) ||
+            (dronesBuilt >= 15 && rc.getTeamSoup() > 600 && Math.random() < 0.3) ||
+            (rc.getRoundNum() > 1250 && rc.getTeamSoup() >= RobotType.DELIVERY_DRONE.cost)){
         	for (Direction dir : directions) {
         		dronesBuilt++;
         		tryBuild(RobotType.DELIVERY_DRONE, dir);

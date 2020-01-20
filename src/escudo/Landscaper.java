@@ -6,7 +6,7 @@ public class Landscaper extends Unit {
 
 	static int latticeElevation = 6;
 
-	static final int wallCutoffRound = 450;
+	static final int wallCutoffRound = 420;
     enum LandscaperMode{
     	FIND_WALL,
     	ON_WALL,
@@ -214,21 +214,30 @@ public class Landscaper extends Unit {
 	// We are the watchers on the wall.
 	static void onWall() throws GameActionException {
 		
-		MapLocation loc = rc.getLocation();
-		rc.setIndicatorDot(rc.getLocation(), 255, 255, 255);
+		MapLocation loc = rc.getLocation();		
 		
+		// EMERGENCY! Heal the HQ if it's about to die!
+		RobotInfo hqInfo = rc.senseRobotAtLocation(hqLocation);
+		if (rc.getDirtCarrying() < RobotType.LANDSCAPER.dirtLimit && hqInfo != null && hqInfo.getDirtCarrying() > 40) {
+			rc.setIndicatorLine(loc, hqLocation, 255, 0, 0);
+			tryDig(loc.directionTo(hqLocation));
+		}
+					
 		// If carrying ANY dirt, deposit it onto ourselves
 		if (rc.getDirtCarrying() > 0) {
 			
+			// Fuck up enemies first.
 			RobotInfo[] robots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
 			for (RobotInfo robot : robots) {
-				if (robot.getType().isBuilding() && robot.getLocation().isAdjacentTo(loc)) {
+				if (robot.getTeam() == rc.getTeam().opponent() && robot.getType().isBuilding() && robot.getLocation().isAdjacentTo(loc)) {
+					rc.setIndicatorLine(loc, hqLocation, 0, 255, 0);
 					tryDeposit(loc.directionTo(robot.getLocation()));
 				}
 			}
 			
 			// If it's before round 500 -- wall can still be built in conventional ways (people walking onto it). Only build self.
 			if (rc.getRoundNum() < wallCutoffRound) {
+				rc.setIndicatorDot(loc, 0, 255, 0);
 				tryDeposit(Direction.CENTER);
 			}
 			// Otherwise, deposit the dirt on the lowest of all adjacent tiles that are still on the wall.
@@ -261,28 +270,39 @@ public class Landscaper extends Unit {
 				if (depositDir != Direction.CENTER) {
 					path.tryMove(depositDir);
 				}
+				rc.setIndicatorLine(loc, loc.add(depositDir), 0, 255, 0);
 				tryDeposit(depositDir);
 			}
 		}
 		// No dirt, need to dig.
 		else{
 			// Heal the HQ if it's not at full health.
-			RobotInfo hqInfo = rc.senseRobotAtLocation(hqLocation);
 			if (hqInfo.getDirtCarrying() > 0) {
+				rc.setIndicatorLine(loc, hqLocation, 255, 0, 0);
 				tryDig(loc.directionTo(hqLocation));
 			}
-			// Otherwise, first try to dig from the designated spot.
-			else if (rc.onTheMap(loc.add(hqLocation.directionTo(loc)))) {
-				tryDig(hqLocation.directionTo(loc));
+			
+			Direction defaultDir = hqLocation.directionTo(loc);
+			
+			// Otherwise, first try to dig from the designated spot (as long as no building is there...)
+			if (rc.onTheMap(loc.add(defaultDir))) {
+				rc.setIndicatorLine(loc, loc.add(defaultDir), 255, 0, 0);
+				tryDig(defaultDir);
 			}
 			// Otherwise, it must be an edge case. Find a non-lattice point near by and dig from it.
 			else {
+				
+				// try to find a dig point.
 				for (Direction dir : directions) {
 					MapLocation potentialDigSpot = loc.add(dir);
+					// System.out.println("Edge case. Trying spot: " + potentialDigSpot);
 					// On the map and not HQ.
 					if (rc.onTheMap(potentialDigSpot) && !potentialDigSpot.equals(hqLocation) && !potentialDigSpot.isAdjacentTo(hqLocation)) {
+						rc.setIndicatorLine(loc, loc.add(dir), 255, 0, 255);
 						if(tryDig(dir)) break;
 					}
+					
+					// System.out.println("Nope");
 				}
 			}
 		}

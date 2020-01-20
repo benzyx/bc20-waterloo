@@ -135,11 +135,9 @@ public class Miner extends Unit {
         }
     	
     	if (desperate) {
-    		
-    		// Fuck the lattice lmao.
     		for (Direction dir : directions) {
     			MapLocation potentialBuildLocation = rc.getLocation().add(dir);
-    			if (potentialBuildLocation.isAdjacentTo(hqLocation)) {
+    			if (potentialBuildLocation.isAdjacentTo(hqLocation) || !onLatticeTiles(potentialBuildLocation)) {
             		continue;
             	}
                 if (tryBuild(robotType, dir)) {
@@ -153,15 +151,17 @@ public class Miner extends Unit {
     
 
     
-    static void randomWalkOnLattice() throws GameActionException {
+    static boolean randomWalkOnLattice(int tries) throws GameActionException {
     	// Randomly move on lattice.
     	Direction dir = Direction.CENTER;
-    	int tries = 100;
     	while (tries > 0) {
     		dir = randomDirection();
-    		if (onLatticeTiles(rc.getLocation().add(dir)) && path.tryMove(dir)) break;
+    		if (onLatticeTiles(rc.getLocation().add(dir)) && path.tryMove(dir)) {
+    			return true;
+    		}
     		tries--;
-    	}	
+    	}
+    	return false;
     }
     
     static int lateFullfillmentCenter = 0;
@@ -179,40 +179,44 @@ public class Miner extends Unit {
 				smartBuild(RobotType.FULFILLMENT_CENTER, true);
 			}
 			// Build a design school asap.
-			if (designSchoolsBuilt < 2 && rc.getTeamSoup() > 160) {
+			if (designSchoolsBuilt < 2 && rc.getRoundNum() > 250) {
 				smartBuild(RobotType.DESIGN_SCHOOL, true);
 			}
-			if (fulfillmentCentersBuilt < 2 && rc.getTeamSoup() > 160) {
+			if (fulfillmentCentersBuilt < 2 && rc.getRoundNum() > 250) {
 				smartBuild(RobotType.FULFILLMENT_CENTER, true);
 			}
 		}
 
         if (buildingOrderIndex < buildingOrder.length && buildingOrder[buildingOrderIndex].cost < rc.getTeamSoup()) {
-        	MapLocation built = smartBuild(buildingOrder[buildingOrderIndex], true);
+        	MapLocation built = smartBuild(buildingOrder[buildingOrderIndex]);
             if (built != null) buildingOrderIndex++;
         }
         
         if (buildingOrderIndex == buildingOrder.length && rc.getRoundNum() > 600 && rc.getTeamSoup() >= RobotType.FULFILLMENT_CENTER.cost && lateFullfillmentCenter < 2) {
-        	MapLocation built = smartBuild(RobotType.FULFILLMENT_CENTER, true);
+        	MapLocation built = smartBuild(RobotType.FULFILLMENT_CENTER);
         	if (built != null) lateFullfillmentCenter++;
         }
         if (buildingOrderIndex == buildingOrder.length && rc.getRoundNum() > 600 && rc.getTeamSoup() >= RobotType.DESIGN_SCHOOL.cost && lateDesignSchool < 2) {
-        	MapLocation built = smartBuild(RobotType.DESIGN_SCHOOL, true);
+        	MapLocation built = smartBuild(RobotType.DESIGN_SCHOOL);
         	if (built != null) lateDesignSchool++;
         }
         
         if (buildingOrderIndex == buildingOrder.length && rc.getRoundNum() > 150 && rc.getTeamSoup() >= RobotType.VAPORATOR.cost && Math.random() > 0.5) {
-        	smartBuild(RobotType.VAPORATOR, true);
+        	smartBuild(RobotType.VAPORATOR);
         }
         
         // Don't stray too far from HQ!
         // Still want to stay on lattice though.
-        if (rc.getRoundNum() < 250 && rc.getLocation().distanceSquaredTo(hqLocation) > 4) {
+        if (rc.getRoundNum() < 120 && rc.getLocation().distanceSquaredTo(hqLocation) > 4 || rc.getRoundNum() < 500 && rc.getLocation().distanceSquaredTo(hqLocation) > 32) {
         	Direction dir = rc.getLocation().directionTo(hqLocation);
         	if (onLatticeTiles(rc.getLocation().add(dir))) path.tryMove(dir);
         }
-
-        path.tryMove(randomDirection());
+        
+        // Randomly move but prefer lattice tiles.
+        if (!randomWalkOnLattice(50)) {
+        	path.tryMove(randomDirection());
+        }
+        
     }
     
     static void macroBuilding() throws GameActionException {
@@ -226,10 +230,10 @@ public class Miner extends Unit {
     	}
     	
     	if (enemyDrone && !friendlyNetGun) {
-    		smartBuild(RobotType.NET_GUN);
+    		smartBuild(RobotType.NET_GUN, true);
     	}
     	if (rc.getRoundNum() > 600 && rc.getTeamSoup() > 1000 && Math.random() < 0.3) {
-    		smartBuild(RobotType.VAPORATOR);
+    		smartBuild(RobotType.VAPORATOR, true);
     	}
     }
 

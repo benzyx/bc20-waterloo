@@ -23,8 +23,9 @@ public class DesignSchool extends Unit {
     		}
 		}
 
-		if ((landscapersBuilt < 15 && rc.getTeamSoup() > 300 && Math.random() < 0.2) ||
-			(landscapersBuilt >= 15 && rc.getTeamSoup() > 600 && Math.random() < 0.1)) {
+		if ((landscapersBuilt < 8 && rc.getTeamSoup() > 250 && Math.random() < 0.5) ||
+			(landscapersBuilt < 15 && rc.getTeamSoup() > 300 && Math.random() < 0.2) ||
+			(landscapersBuilt < 30 && rc.getTeamSoup() > 600 && Math.random() < 0.1)) {
     		for (Direction dir : directions) {
     			if (tryBuild(RobotType.LANDSCAPER, dir)) {
     				landscapersBuilt++;

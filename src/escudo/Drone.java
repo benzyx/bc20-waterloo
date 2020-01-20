@@ -191,7 +191,7 @@ public class Drone extends Unit {
 		// Check if any of the adjacent blocks are water.
 		lastFloodedTile = getClosestKnownWaterTile();
 		
-		if (beingRushed && rc.getRoundNum() < 500) {
+		if (beingRushed && rc.getRoundNum() > 500) {
 			beingRushed = false;
 			path.resetTarget();
 		}
@@ -201,6 +201,7 @@ public class Drone extends Unit {
 		}
 		// Rush defense in first 500 rounds.
 		else if (beingRushed) {
+			rc.setIndicatorLine(rc.getLocation(), hqLocation, 0, 255, 0);
 			mode = DroneMode.RUSH_DEFENSE;
 		}
 		else if (enemyHQLocation != null) {
