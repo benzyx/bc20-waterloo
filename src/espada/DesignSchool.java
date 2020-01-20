@@ -4,7 +4,7 @@ import battlecode.common.*;
 
 public class DesignSchool extends Unit {
 
-	int landscapersBuilt = 0;
+	static int landscapersBuilt = 0;
 	
 	public DesignSchool(RobotController _rc) {
 		super(_rc);
@@ -13,7 +13,8 @@ public class DesignSchool extends Unit {
 	@Override
 	public void run() throws GameActionException {
 		txn.updateToLatestBlock();
-		if (rc.getTeamSoup() > 300 && Math.random() < 0.2) {
+		if ((landscapersBuilt < 15 && rc.getTeamSoup() > 300 && Math.random() < 0.2) ||
+			(landscapersBuilt >= 15 && rc.getTeamSoup() > 600 && Math.random() < 0.1)) {
     		for (Direction dir : directions) {
     			if (tryBuild(RobotType.LANDSCAPER, dir)) {
     				landscapersBuilt++;
@@ -21,5 +22,6 @@ public class DesignSchool extends Unit {
     			}
     		}
 		}
+		
 	}
 }

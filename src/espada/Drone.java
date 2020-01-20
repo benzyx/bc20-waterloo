@@ -22,6 +22,9 @@ public class Drone extends Unit {
 	MapLocation dropOffLocation;
 	MapLocation lastFloodedTile;
 
+	public MapLocation[] netGuns = new MapLocation[20];
+	public int netGunCount = 0;
+
 	public Drone(RobotController _rc) {
 		super(_rc);
 		// TODO Auto-generated constructor stub
@@ -71,20 +74,20 @@ public class Drone extends Unit {
 		RobotInfo robot = senseEnemies();
 		if (robot != null) {
 			if (tryPickUp(robot.getID())) {
-				mode = DroneMode.HOLDING_ENEMY;
+				path.resetTarget();
 			}
 			else {
-				path.setTarget(robot.getLocation());
+				path.simpleTargetMovement(robot.getLocation());
 			}
 		}
-		
-		if (loc == null) {
-			path.simpleTargetMovement();
-		}
 		else {
-			path.simpleTargetMovement(loc);
+			if (loc == null) {
+				path.simpleTargetMovement();
+			}
+			else {
+				path.simpleTargetMovement(loc);
+			}
 		}
-		
 	}
 
 	/**
@@ -170,8 +173,9 @@ public class Drone extends Unit {
 			mode = DroneMode.HOLDING_ENEMY;
 		}
 		else if (enemyHQLocation != null) {
-			if (rc.getRoundNum() >= swarmRound && (rc.getRoundNum() % swarmRound < 100)) mode = DroneMode.SWARM;
-			else mode = DroneMode.AWAITING_STRIKE;
+			if (rc.getRoundNum() >= swarmRound && (rc.getRoundNum() % swarmRound < 25)) mode = DroneMode.SWARM;
+			else if (rc.getRoundNum() > swarmRound - 120) mode = DroneMode.AWAITING_STRIKE;
+			else mode = DroneMode.ROAM;
 		}
 		else {
 			mode = DroneMode.ROAM;

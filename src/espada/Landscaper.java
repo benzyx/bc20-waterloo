@@ -4,7 +4,8 @@ import battlecode.common.*;
 
 public class Landscaper extends Unit {
 
-	static final int latticeElevation = 7;
+	static int latticeElevation = 6;
+
 	static final int wallCutoffRound = 500;
     enum LandscaperMode{
     	FIND_WALL,
@@ -66,6 +67,10 @@ public class Landscaper extends Unit {
 	public void run() throws GameActionException {    
     	txn.updateToLatestBlock();
     	
+    	if (rc.getRoundNum() > 900) {
+    		latticeElevation = 9;
+    	}
+
     	// On wall means on a tile adjacent to the wall. No other way around it I think. Greedy approach is the most reliable in decentralized algorithms.
     	MapLocation loc = rc.getLocation();
     	
@@ -228,7 +233,9 @@ public class Landscaper extends Unit {
 				for (Direction dir : directions) {
 					MapLocation wallSpot = loc.add(dir);
 					if (!wallSpot.isAdjacentTo(hqLocation)) continue;
-					if (rc.senseRobotAtLocation(wallSpot) != null) continue;
+					
+					RobotInfo robot = rc.senseRobotAtLocation(wallSpot);
+					if (robot != null && robot.getTeam() == rc.getTeam() && robot.getType() == RobotType.LANDSCAPER) continue;
 					if (wallSpot.equals(hqLocation)) continue;
 					if (!rc.canSenseLocation(wallSpot)) continue;
 					int elevation = rc.senseElevation(wallSpot);
@@ -334,6 +341,8 @@ public class Landscaper extends Unit {
 		}
 		// Has max dirt capacity - start depositing dirt.
 		else {
+			
+			// Make sure we have a terraform target.
 			if (terraformTarget == null) {
 				terraformTarget = findTerraformTarget();
 			}
@@ -363,10 +372,28 @@ public class Landscaper extends Unit {
 	
 	// Move towards and kill that bitch?
 	static public void attack(MapLocation attackTarget) throws GameActionException{
-		
-		System.out.println("I am in attack mode!");
 		MapLocation loc = rc.getLocation();
 		rc.setIndicatorLine(loc, attackTarget, 255, 255, 0);
+		
+		RobotInfo attackTargetRobot = rc.senseRobotAtLocation(attackTarget);
+
+		// Find the special case: HQ surrounded by wall.
+		int distanceToTarget = loc.distanceSquaredTo(attackTarget);
+		if (attackTargetRobot != null && attackTargetRobot.getType() == RobotType.HQ && 4 <= distanceToTarget && distanceToTarget <= 16) {
+			Direction dirToEnemyHQ = loc.directionTo(attackTarget);
+			MapLocation tileNextToEnemyHQ = loc.add(dirToEnemyHQ);
+			
+			// Brute force our wall through this shit.
+			if (rc.canSenseLocation(tileNextToEnemyHQ) && rc.senseElevation(tileNextToEnemyHQ) > rc.senseElevation(loc) + 3) {
+				if (rc.getDirtCarrying() == 0) {
+					tryDig(dirToEnemyHQ);
+				}
+				else {
+					tryDeposit(Direction.CENTER);
+				}
+			}
+		}
+
 		if (rc.getDirtCarrying() == 0) {
 			// Find a non-Lattice tile that is not the HQ and try to dig there.
 			for (Direction dir : directions) {
@@ -376,8 +403,10 @@ public class Landscaper extends Unit {
 			}
 		}
 		else {
+
 			navigateToDeposit(attackTarget, false);
 		}
+		
 		
 	}
 	
