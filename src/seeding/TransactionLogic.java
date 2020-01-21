@@ -1,4 +1,4 @@
-package escudo;
+package seeding;
 
 import battlecode.common.*;
 
@@ -63,10 +63,9 @@ class TransactionLogic {
     	return RobotType.COW;
     }
     
-    static int[] applyXORtoMessage(int[] message, int cost, int roundNum) {
-    	int signature = (cost << 16) | roundNum;
+    static int[] applyXORtoMessage(int[] message) {
     	for (int i = 0; i < message.length; i++) {
-    		message[i] = message[i] ^ secretKey ^ signature;
+    		message[i] = message[i] ^ secretKey;
     	}
     	return message;
     }
@@ -88,7 +87,7 @@ class TransactionLogic {
     void sendRushDetectedMessage(RobotInfo robot, int cost) throws GameActionException {
     	MapLocation loc = robot.getLocation();
     	int[] message = {1, MessageType.RUSH_DETECTED.ordinal(), 0, robotTypeToNum(robot.getType()), 0, loc.x, loc.y};
-    	rc.submitTransaction(applyXORtoMessage(message, cost, rc.getRoundNum()), cost);
+    	rc.submitTransaction(applyXORtoMessage(message), cost);
     }
     
     static void readRushDetectedMessage(int[] message) {
@@ -107,7 +106,7 @@ class TransactionLogic {
      */
     void sendSpawnMessage(RobotType type, int cost) throws GameActionException {
     	int[] message = {1, MessageType.UNIT_SPAWNED.ordinal(), robotTypeToNum(type), 0, 0, 0, 0};
-    	rc.submitTransaction(applyXORtoMessage(message, cost, rc.getRoundNum()), cost);
+    	rc.submitTransaction(applyXORtoMessage(message), cost);
     }
     
     static void readSpawnMessage(int[] message) throws GameActionException {
@@ -131,7 +130,7 @@ class TransactionLogic {
     	int isFriendly = (rc.getTeam() == robotInfo.getTeam()) ? 1 : 0;
 
     	int[] message = {1, MessageType.LOCATION.ordinal(), isFriendly, robotTypeToNum(robotInfo.getType()), elevation, loc.x, loc.y};
-    	rc.submitTransaction(applyXORtoMessage(message, cost, rc.getRoundNum()), cost);
+    	rc.submitTransaction(applyXORtoMessage(message), cost);
     }
     
     static void readLocationMessage(int[] message) throws GameActionException {
@@ -162,8 +161,8 @@ class TransactionLogic {
      * @param t
      * @throws GameActionException
      */
-    static void readTransaction(Transaction t, int roundNum) throws GameActionException {
-    	int[] message = applyXORtoMessage(t.getMessage(), t.getCost(), roundNum);
+    static void readTransaction(Transaction t) throws GameActionException {
+    	int[] message = applyXORtoMessage(t.getMessage());
     	if (message[0] != 1) {
     		return;
     	}
@@ -172,9 +171,9 @@ class TransactionLogic {
     	if (message[1] == MessageType.UNIT_SPAWNED.ordinal()) readSpawnMessage(message);
     }
     
-    void readBlock(Transaction[] ts, int roundNum) throws GameActionException {
+    void readBlock(Transaction[] ts) throws GameActionException {
     	for (Transaction t : ts) {
-    		readTransaction(t, roundNum);
+    		readTransaction(t);
     	}
     }
     
@@ -185,8 +184,7 @@ class TransactionLogic {
     	int counter = blocksPerRound;
     	while (lastBlockRead < latestTransaction && counter > 0) {
     		counter--;
-    		lastBlockRead++;
-    		readBlock(rc.getBlock(lastBlockRead), lastBlockRead);
+    		readBlock(rc.getBlock(++lastBlockRead));
     		
     	}
     }

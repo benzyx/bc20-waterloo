@@ -1,4 +1,4 @@
-package escudo;
+package seeding;
 
 import battlecode.common.*;
 

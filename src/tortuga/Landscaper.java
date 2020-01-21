@@ -1,4 +1,4 @@
-package escudo;
+package tortuga;
 
 import battlecode.common.*;
 
@@ -291,6 +291,7 @@ public class Landscaper extends Unit {
 			}
 			// Otherwise, it must be an edge case. Find a non-lattice point near by and dig from it.
 			else {
+				
 				// try to find a dig point.
 				for (Direction dir : directions) {
 					MapLocation potentialDigSpot = loc.add(dir);
@@ -300,10 +301,13 @@ public class Landscaper extends Unit {
 						rc.setIndicatorLine(loc, loc.add(dir), 255, 0, 255);
 						if(tryDig(dir)) break;
 					}
+					
 					// System.out.println("Nope");
 				}
 			}
 		}
+			
+
 	}
 	
 	static MapLocation findTerraformTarget() throws GameActionException {
@@ -431,6 +435,7 @@ public class Landscaper extends Unit {
 			}
 		}
 		else {
+
 			navigateToDeposit(attackTarget, false);
 		}
 		
