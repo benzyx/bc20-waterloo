@@ -17,6 +17,7 @@ class TransactionLogic {
 		WALL_STATUS,
 		WALL_COMPLETE,
 		RUSH_DETECTED,
+		SOUP_LOCATION,
 	}
 
 	static int lastBlockRead = 0;
@@ -25,7 +26,7 @@ class TransactionLogic {
 		rc = _rc;
 	}
 
-	static int secretKey = 0xE57ADA00;
+	static int secretKey = 0x31415926;
     
     static int robotTypeToNum(RobotType type) {
     	switch (type) {
@@ -94,7 +95,6 @@ class TransactionLogic {
     static void readRushDetectedMessage(int[] message) {
     	// Friendly HQ.
     	MapLocation location = new MapLocation(message[5], message[6]);
-
     	Unit.beingRushed = true;
 		Unit.rushTargetLocation = location;
     }
@@ -156,6 +156,23 @@ class TransactionLogic {
     	}
 		
     }
+    
+    
+    /**
+     * Used to direct miners where to find more soup.
+     * 
+     * @param robotInfo
+     * @param loc
+     * @param cost
+     * @throws GameActionException
+     */
+    void sendSoupLocationMessage(RobotInfo robotInfo, MapLocation loc, int cost) throws GameActionException {
+    	
+    }
+    
+    static void readSoupLocationMessage(int[] message) throws GameActionException {
+    	
+    }
 
     /**
      * 
@@ -170,6 +187,7 @@ class TransactionLogic {
     	if (message[1] == MessageType.LOCATION.ordinal()) readLocationMessage(message);
     	if (message[1] == MessageType.RUSH_DETECTED.ordinal()) readRushDetectedMessage(message);
     	if (message[1] == MessageType.UNIT_SPAWNED.ordinal()) readSpawnMessage(message);
+    	if (message[1] == MessageType.SOUP_LOCATION.ordinal()) readSoupLocationMessage(message);
     }
     
     void readBlock(Transaction[] ts, int roundNum) throws GameActionException {

@@ -12,7 +12,7 @@ public class Drone extends Unit {
 		RUSH_DEFENSE,
 	}
 	
-	static final int safeRadius = 15;
+	static final int safeRadius = 16;
 	static final int swarmRound = 1200;
 	
 	RobotInfo robotCarrying = null;

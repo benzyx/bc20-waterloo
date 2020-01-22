@@ -7,10 +7,11 @@ public class Landscaper extends Unit {
 	static int latticeElevation = 6;
 
 	static final int wallCutoffRound = 420;
+
     enum LandscaperMode{
     	FIND_WALL,
     	ON_WALL,
-    	ROAM,
+    	TERRAFORM,
     	ATTACK,
     	RUSH_DEFENSE,
     	EARLY_RUSH,
@@ -70,6 +71,9 @@ public class Landscaper extends Unit {
     	if (rc.getRoundNum() > 900) {
     		latticeElevation = 9;
     	}
+    	if (roundFlooded(latticeElevation) < rc.getRoundNum() + 250) {
+    		latticeElevation++;
+    	}
 
     	// On wall means on a tile adjacent to the wall. No other way around it I think. Greedy approach is the most reliable in decentralized algorithms.
     	MapLocation loc = rc.getLocation();
@@ -87,7 +91,7 @@ public class Landscaper extends Unit {
 	    		mode = LandscaperMode.FIND_WALL;
 	    	}
 	    	else {
-	    		mode = LandscaperMode.ROAM;
+	    		mode = LandscaperMode.TERRAFORM;
 	    	}
     	}
     	
@@ -102,7 +106,7 @@ public class Landscaper extends Unit {
 		case ATTACK:
 			attack(attackTarget);
 			break;
-		case ROAM:
+		case TERRAFORM:
 			terraform();
 			break;
 		case EARLY_RUSH:
@@ -202,7 +206,7 @@ public class Landscaper extends Unit {
     			targetWallLocation = null;
        			// If all 8 wall spots are confirmed occupied, then become a roamer.
     			if (wallComplete) {
-        			mode = LandscaperMode.ROAM;
+        			mode = LandscaperMode.TERRAFORM;
         		}
     		}
 		}
@@ -340,20 +344,14 @@ public class Landscaper extends Unit {
 		return bestSpot;
 	}
 	
+	
+	static void terrformTowards() throws GameActionException {
+		
+	}
+
 	// Terraform: build lattice while roaming
 	static void terraform() throws GameActionException {
 
-		// detect enemies
-//		Team enemy = rc.getTeam().opponent();
-//        RobotInfo[] enemies = rc.senseNearbyRobots(-1, enemy);
-//        for (RobotInfo enemyRobot : enemies) {
-//        	// If it's a building/
-//        	if (enemyRobot.getType().isBuilding()) {
-//        		mode = LandscaperMode.ATTACK;
-//        		path.simpleTargetMovement(enemyRobot.getLocation(), true);
-//        		return;
-//        	}
-//        }
 		MapLocation loc = rc.getLocation();
 		
 		// Not yet max dirt capacity.
