@@ -11,18 +11,30 @@ class PathingLogic {
 
 	static RobotController rc;
 	
-	// Record the last 100 mapLocations
-	static int lastLocationsIndex = 0;
-	static MapLocation[] lastLocationsOnPath = new MapLocation[100];
-
-	public PathingLogic(RobotController _rc) {
-		rc = _rc;
-	}
-    
+	
     // This is important!
     // targetLocation is used by all units to determine where they want to move to next.
     // 
     static MapLocation targetLocation;
+    
+	// Record the last 100 mapLocations
+	static int lastLocationsIndex = 0;
+	static MapLocation[] lastLocationsOnPath = new MapLocation[100];
+	
+	
+    MapLocation[] lastStuckTargetTiles = new MapLocation[5];
+    int lastStuckTargetTilesIndex = 0;
+    
+
+	public PathingLogic(RobotController _rc) {
+		rc = _rc;
+	}
+	
+	static int closestDistanceOnPath;
+	static int stuckCounter;
+
+    
+
     
     static Direction nextCWDirection(Direction dir) {
     	switch (dir) {
@@ -169,7 +181,89 @@ class PathingLogic {
     	if (!success) {
     		// Actually. lets not reset the path memory.
     		resetPathMemory();
+    		stuckCounter++;
     	}
+    }
+    
+    /// ========= Move towards CW ==============
+    
+    /**
+     * Moves towards targetLocation.
+     * @param new location to move to.
+     * @throws GameActionException
+     */
+    void simpleTargetMovementCWOnly(MapLocation newLoc, boolean onLattice) throws GameActionException {
+    	setTarget(newLoc);
+    	simpleTargetMovementCWOnly(onLattice);
+    }
+    
+    /**
+     * Moves towards targetLocation.
+     * @param new location to move to.
+     * @throws GameActionException
+     */
+    void simpleTargetMovementCWOnly(MapLocation newLoc) throws GameActionException {
+    	setTarget(newLoc);
+    	simpleTargetMovementCWOnly(false);
+    }
+  
+    
+    /**
+     * Moves towards targetLocation.
+     * @throws GameActionException
+     */
+    void simpleTargetMovementCWOnly() throws GameActionException {
+    	simpleTargetMovementCWOnly(false);
+    }
+    
+    
+    /**
+     * Move towards targetLocation but only in CW direction (with option for turning on lattice tiles).
+     * 
+     * @param onLattice
+     * @throws GameActionException
+     */
+    void simpleTargetMovementCWOnly(boolean onLattice) throws GameActionException {
+    	// Sample a point on the grid.
+    	MapLocation loc = rc.getLocation();
+    	if (targetLocation == null || loc.equals(targetLocation)) {
+    		setTarget(sampleTargetLocation(loc));
+    	}
+    	 
+    	// Simple move towards
+    	Direction dir = loc.directionTo(targetLocation);
+    	boolean success = (!onLattice || Unit.onLatticeTiles(targetLocation)) && !alreadyVisitedOnPath(targetLocation) && tryMove(loc.directionTo(targetLocation));
+    	int tries = 7;
+    	Direction cw = dir;
+    	while (tries > 0 && !success) {
+    		cw = nextCWDirection(cw);
+    		success = (!onLattice || Unit.onLatticeTiles(loc.add(cw))) && !alreadyVisitedOnPath(loc.add(cw)) && tryMove(cw);
+    		tries--;
+    	}
+    	
+    	// We are stuck... Randomize the destination I guess.
+    	// actually, just reset the memory for path
+    	if (!success) {
+    		// Actually. lets not reset the path memory.
+    		resetPathMemory();
+    		stuckCounter++;
+    	}
+    }
+    
+    boolean isPastStuckTarget(MapLocation loc) {
+    	for (int i = 0; i < 5 && i < lastStuckTargetTilesIndex; i++) {
+    		if (loc.equals(lastStuckTargetTiles[i])) return true;
+    	}
+    	return false;
+    }
+
+    boolean isStuck() {
+    	if (stuckCounter > 2) {
+    		lastStuckTargetTiles[lastStuckTargetTilesIndex % 5] = targetLocation;
+    		lastStuckTargetTilesIndex++;
+    		return true;
+    	}
+    	return false;
     }
     
     /**
@@ -194,11 +288,14 @@ class PathingLogic {
     }
     void resetTarget() {
     	targetLocation = null;
+    	stuckCounter = 0;
+    	closestDistanceOnPath = 999999999;
         resetPathMemory();
     }
     
     void setTarget(MapLocation loc) {
     	if (loc == null || !loc.equals(targetLocation)) resetTarget();
     	targetLocation = loc;
+    	closestDistanceOnPath = loc.distanceSquaredTo(targetLocation);
     }
 }

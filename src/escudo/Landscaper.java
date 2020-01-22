@@ -6,9 +6,10 @@ public class Landscaper extends Unit {
 
 	static int latticeElevation = 6;
 
-	static final int wallCutoffRound = 420;
+	static final int wallCutoffRound = 600;
 
     enum LandscaperMode{
+    	EARLY_TERRAFORM,
     	FIND_WALL,
     	ON_WALL,
     	TERRAFORM,
@@ -77,8 +78,10 @@ public class Landscaper extends Unit {
 
     	// On wall means on a tile adjacent to the wall. No other way around it I think. Greedy approach is the most reliable in decentralized algorithms.
     	MapLocation loc = rc.getLocation();
-    	
-    	if (loc.isAdjacentTo(hqLocation))
+    	if (rc.getRoundNum() < 400 && !beingRushed) {
+    		mode = LandscaperMode.EARLY_TERRAFORM;
+    	}
+    	else if (loc.isAdjacentTo(hqLocation))
     	{
     		mode = LandscaperMode.ON_WALL;
     	}
@@ -97,6 +100,9 @@ public class Landscaper extends Unit {
     	
     	// Sense nearby enemies.
     	switch (mode) {
+    	case EARLY_TERRAFORM:
+    		terraform(true);
+    		break;
     	case FIND_WALL:
     		findWall();
     		break;
@@ -107,7 +113,7 @@ public class Landscaper extends Unit {
 			attack(attackTarget);
 			break;
 		case TERRAFORM:
-			terraform();
+			terraform(false);
 			break;
 		case EARLY_RUSH:
 			rush();
@@ -310,7 +316,7 @@ public class Landscaper extends Unit {
 		}
 	}
 	
-	static MapLocation findTerraformTarget() throws GameActionException {
+	static MapLocation findTerraformTarget(boolean aroundHQ) throws GameActionException {
 		MapLocation bestSpot = null;
 		// minimize priority
 		int bestPriority = 9999999;
@@ -322,6 +328,7 @@ public class Landscaper extends Unit {
 				// only care about locations we can sense
 				if (!rc.canSenseLocation(potentialFillSpot)) continue;
 				if (!onLatticeTiles(potentialFillSpot)) continue;
+				if (path.isPastStuckTarget(potentialFillSpot)) continue;
 
 				// Check if the elevation is below what we need.
 				int elevation = rc.senseElevation(potentialFillSpot);
@@ -334,7 +341,12 @@ public class Landscaper extends Unit {
 				// Fill in the closest square to HQ that needs it.
 				int priority = rc.getLocation().distanceSquaredTo(potentialFillSpot);
 				
-				// Actually fill in the closest one to us, tiebroken by distance to HQ.
+				// If we're filling around the HQ, then we want to find the closest points around HQ that we can sense to fill.
+				if (aroundHQ) {
+					priority = hqLocation.distanceSquaredTo(potentialFillSpot);
+				}
+
+				// Get the best priority.
 				if (bestPriority > priority) {
 					bestPriority = priority;
 					bestSpot = potentialFillSpot;
@@ -346,11 +358,10 @@ public class Landscaper extends Unit {
 	
 	
 	static void terrformTowards() throws GameActionException {
-		
 	}
 
 	// Terraform: build lattice while roaming
-	static void terraform() throws GameActionException {
+	static void terraform(boolean aroundHQ) throws GameActionException {
 
 		MapLocation loc = rc.getLocation();
 		
@@ -363,34 +374,41 @@ public class Landscaper extends Unit {
 				}
 			}
 			// Else, move.
-			path.simpleTargetMovement(true);
+			path.simpleTargetMovementCWOnly(true);
 		}
 		// Has max dirt capacity - start depositing dirt.
 		else {
 			
+			if (path.isStuck()) {
+				System.out.println("I am stuck!");
+				path.resetTarget();
+			}
+			
 			// Make sure we have a terraform target.
 			if (terraformTarget == null) {
-				terraformTarget = findTerraformTarget();
+				terraformTarget = findTerraformTarget(aroundHQ);
 			}
+			
 
 			if (terraformTarget != null) {
 				rc.setIndicatorLine(rc.getLocation(), terraformTarget, 192, 192, 0);
 				// Check if the target is done.
 				if (rc.canSenseLocation(terraformTarget) && rc.senseElevation(terraformTarget) >= latticeElevation) {
-					terraformTarget = findTerraformTarget();
+					terraformTarget = findTerraformTarget(aroundHQ);
 				}
 				navigateToDeposit(terraformTarget, true);
 			}
 			else {
 				if (enemyHQLocation != null) {
-					path.simpleTargetMovement(enemyHQLocation);
+					path.simpleTargetMovementCWOnly(enemyHQLocation);
 				}
 				else {
-					path.simpleTargetMovement();
+					path.simpleTargetMovementCWOnly();
 				}
 			}
 		}
 	}
+
 	
 	static public void rushDefense() {
 		
@@ -445,7 +463,7 @@ public class Landscaper extends Unit {
 			tryDeposit(rc.getLocation().directionTo(dest));
 		}
 		else {
-			path.simpleTargetMovement(dest, latticeOnly);
+			path.simpleTargetMovementCWOnly(dest, latticeOnly);
 		}
 	}
 	

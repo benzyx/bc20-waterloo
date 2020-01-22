@@ -15,6 +15,7 @@ public class Miner extends Unit {
 
     static RobotType[] buildingOrder = {
         RobotType.VAPORATOR,
+        RobotType.VAPORATOR,
     	RobotType.DESIGN_SCHOOL,
     	RobotType.REFINERY,
     	RobotType.FULFILLMENT_CENTER,
@@ -29,9 +30,11 @@ public class Miner extends Unit {
     static int netGunsBuilt = 0;
     
 
+    static int lastMinedRound;
     static MapLocation lastSoupTile;
     static MapLocation lastRefineryLocation;
     static MapLocation depositLocation;
+    static MapLocation lastSoupTileFromComms;
     
 	public Miner(RobotController _rc) throws GameActionException {
 		super(_rc);
@@ -54,43 +57,6 @@ public class Miner extends Unit {
     		soupCollecting();
     		break;
     	}
-    }
-    
-	static MapLocation findSoup() throws GameActionException {
-    	MapLocation loc = rc.getLocation();
-    	
-    	
-        // If we can see the lastMinedSoupTile and it no longer has any soup, we can reset it.
-        if (lastSoupTile != null && rc.canSenseLocation(lastSoupTile)) {
-        	if (rc.senseSoup(lastSoupTile) == 0) lastSoupTile = null;
-        	else {
-        		return lastSoupTile;
-        	}
-        }
-        
-        // By closest, not by amount.
-    	int bestDistanceSquared = 999999999;
-		MapLocation soupLoc = null;
-		
-		// Search for soup locally.
-        for (int dx = -6; dx <= 6; dx++) {
-        	for (int dy = -6; dy <= 6; dy++) {
-        		if (!rc.canSenseLocation(loc.translate(dx, dy))) continue;
-        		
-    			int soupAmount = rc.senseSoup(loc.translate(dx, dy));
-    			if (soupAmount > 0 && bestDistanceSquared > loc.distanceSquaredTo(loc.translate(dx, dy))) {
-    				bestDistanceSquared = loc.distanceSquaredTo(loc.translate(dx, dy));
-        			soupLoc = loc.translate(dx, dy);
-        		}
-        	}
-        }
-        
-        if (soupLoc != null) {
-        	lastSoupTile = soupLoc;
-        	return soupLoc;
-        }
-        
-        return lastSoupTile;
     }
     
 	static void incrementBuildCounters(RobotType robotType) throws GameActionException {
@@ -213,10 +179,7 @@ public class Miner extends Unit {
         }
         
         // Randomly move but prefer lattice tiles.
-        if (!randomWalkOnLattice(50)) {
-        	path.tryMove(randomDirection());
-        }
-        
+        soupCollecting();
     }
     
     static void macroBuilding() throws GameActionException {
@@ -232,7 +195,7 @@ public class Miner extends Unit {
     	if (enemyDrone && !friendlyNetGun) {
     		smartBuild(RobotType.NET_GUN, true);
     	}
-    	if (rc.getRoundNum() > 600 && rc.getTeamSoup() > 1000 && Math.random() < 0.3) {
+    	if (rc.getRoundNum() > 600 && rc.getTeamSoup() > 650 && Math.random() < 0.6) {
     		smartBuild(RobotType.VAPORATOR, true);
     	}
     }
@@ -241,10 +204,61 @@ public class Miner extends Unit {
     	// Sense Nearby Refineries
     	RobotInfo[] robots = rc.senseNearbyRobots();
     	for (RobotInfo robot : robots) {
-    		if (robot.getTeam() == rc.getTeam() && robot.getType() == RobotType.REFINERY) {
+    		if (robot.getTeam().equals(rc.getTeam()) && robot.getType() == RobotType.REFINERY) {
     			lastRefineryLocation = robot.getLocation();
     		}
     	}
+    }
+    
+    
+	static MapLocation findSoup() throws GameActionException {
+    	MapLocation loc = rc.getLocation();
+    	
+        // If we can see the lastSoupTileOnComms and it no longer has any soup, we can reset it.
+        if (lastSoupTileFromComms != null && rc.canSenseLocation(lastSoupTileFromComms)) {
+        	if (rc.senseSoup(lastSoupTileFromComms) == 0) lastSoupTileFromComms = null;
+        }
+    	
+        // If we can see the lastMinedSoupTile and it no longer has any soup, we can reset it.
+        if (lastSoupTile != null && rc.canSenseLocation(lastSoupTile)) {
+        	if (rc.senseSoup(lastSoupTile) == 0) lastSoupTile = null;
+        }
+
+
+        if (lastSoupTile != null && path.isPastStuckTarget(lastSoupTile)) {
+        	return lastSoupTile;
+        }
+
+        // By closest, not by amount.
+    	int bestDistanceSquared = 999999999;
+		MapLocation soupLoc = null;
+		
+		// Search for soup locally.
+        for (int dx = -6; dx <= 6; dx++) {
+        	for (int dy = -6; dy <= 6; dy++) {
+        		MapLocation potentialSoupLoc = loc.translate(dx, dy);
+        		
+        		if (!rc.canSenseLocation(potentialSoupLoc)) continue;
+        		if (path.isPastStuckTarget(potentialSoupLoc)) continue;
+
+    			int soupAmount = rc.senseSoup(potentialSoupLoc);
+    			if (soupAmount > 0 && bestDistanceSquared > loc.distanceSquaredTo(potentialSoupLoc)) {
+    				bestDistanceSquared = loc.distanceSquaredTo(potentialSoupLoc);
+        			soupLoc = loc.translate(dx, dy);
+        		}
+        	}
+        }
+        
+
+        if (soupLoc != null) {
+        	lastSoupTile = soupLoc;
+        	return soupLoc;
+        } 
+        else if (lastSoupTileFromComms != null && path.isPastStuckTarget(lastSoupTileFromComms)) {
+        	lastSoupTile = lastSoupTileFromComms;
+        	return lastSoupTileFromComms;
+        }
+        return null;
     }
 
     static void soupCollecting() throws GameActionException {
@@ -255,30 +269,43 @@ public class Miner extends Unit {
     		minerDepositSoup();
     	}
     	else {
-    		path.simpleTargetMovement();
+    		path.simpleTargetMovementCWOnly();
     	}
     }
 
     static void minerMineSoup() throws GameActionException {
 
+    	
     	MapLocation loc = rc.getLocation();
+    	
+    	if (path.isStuck()) {
+    		path.resetTarget();
+    		rc.setIndicatorDot(loc, 255, 255, 255);
+    		System.out.println("I am stuck!");
+    	}
+
     	MapLocation soupLoc = findSoup();
+    	
         // found some soup!
         if (soupLoc != null) {
-        	rc.setIndicatorDot(soupLoc, 0, 255, 0);
+        	rc.setIndicatorLine(loc, soupLoc, 0, 255, 0);
         	// If we are next to the soup, we will mine it.
         	if (soupLoc.isAdjacentTo(loc)) {
+//        		if (lastMinedRound + 100 < rc.getRoundNum() && lastSoupTileFromComms.distanceSquaredTo(soupLoc) > 75) {
+//        			txn.sendSoupLocationMessage(soupLoc, 1);
+//        		}
+//        		lastMinedRound = rc.getRoundNum();
         		tryMine(loc.directionTo(soupLoc));
         	}
         	// If we are not next to the soup, we will move towards it.
         	else {
-        		path.simpleTargetMovement(soupLoc);
+        		path.simpleTargetMovementCWOnly(soupLoc);
         	}
         }
         else {
         	// Explore the world for more soup.
         	System.out.println("Exploring the world for more soup.");
-        	path.simpleTargetMovement();
+        	path.simpleTargetMovementCWOnly();
         }
     }
 
@@ -315,12 +342,12 @@ public class Miner extends Unit {
 	    		path.resetTarget();
 	    	}
 	    	else {
-	    		path.simpleTargetMovement(depositLocation);
+	    		path.simpleTargetMovementCWOnly(depositLocation);
 	    		rc.setIndicatorLine(rc.getLocation(), depositLocation, 0, 0, 255);
 			}
     	}
     	else {
-    		path.simpleTargetMovement();
+    		path.simpleTargetMovementCWOnly();
     	}
     }
     
