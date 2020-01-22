@@ -31,7 +31,7 @@ public class HQ extends Unit {
         // Otherwise, start trying to build miners if we have too much soup.
         if (minersProduced < initialMinersCount ||
         	minersProduced < 6 && rc.getTeamSoup() > 300 && Math.random() < 0.1 ||
-        	minersProduced < totalMinersNeeded && rc.getTeamSoup() > 550 && Math.random() < 0.1) {
+        	minersProduced < totalMinersNeeded && rc.getTeamSoup() > 550 && Math.random() < 0.05) {
         	for (Direction dir : directions) {
                 if (tryBuild(RobotType.MINER, dir)) {
                 	minersProduced++;

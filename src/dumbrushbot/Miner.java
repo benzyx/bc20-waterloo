@@ -38,6 +38,7 @@ public class Miner extends Unit {
 	static MapLocation depositLocation;
 	static MapLocation currentTile;
 	static MapLocation targetLoc;
+	static MapLocation localDesignSchoolLocation;
 
 	public Miner(RobotController _rc) throws GameActionException {
 		super(_rc);
@@ -163,10 +164,34 @@ public class Miner extends Unit {
 	 * @throws GameActionException
 	 */
 	static MapLocation aggroBuild(RobotType robotType) throws GameActionException{
+		Direction targetDir = rc.getLocation().directionTo(enemyHQLocation);
+		if (enemyHQLocation.isAdjacentTo(rc.getLocation().add(targetDir).add(targetDir))) {
+			if (tryBuild(robotType, targetDir)) {
+				incrementBuildCounters(robotType);
+				return rc.getLocation().add(targetDir);
+			}
+		}
+
+
 		for (Direction dir : directions) {
 			// Do not build anything adjacent to our HQ.
 			MapLocation potentialBuildLocation = rc.getLocation().add(dir);
 			if (!potentialBuildLocation.isAdjacentTo(enemyHQLocation)) {
+				continue;
+			}
+			if (tryBuild(robotType, dir)) {
+				incrementBuildCounters(robotType);
+				localDesignSchoolLocation = potentialBuildLocation;
+				return potentialBuildLocation;
+			}
+		}
+		return null;
+	}
+
+	static MapLocation safeBuild(RobotType robotType) throws GameActionException{
+		for (Direction dir : directions) {
+			MapLocation potentialBuildLocation = rc.getLocation().add(dir);
+			if (!potentialBuildLocation.isAdjacentTo(localDesignSchoolLocation)) {
 				continue;
 			}
 			if (tryBuild(robotType, dir)) {
@@ -214,21 +239,33 @@ public class Miner extends Unit {
 			searchForHQ();
 		}
 
-		RobotInfo[] robots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+		RobotInfo[] robots = rc.senseNearbyRobots(-1);
 		// Look at all the enemy robots.
 		RobotInfo closestEnemyRobot = null;
 		int closestDistance = 999999999;
+		int localLandscaperCount = 0;
+		int localNetGunCount = 0;
+		Team myTeam = rc.getTeam();
 		for (RobotInfo robot : robots) {
 			// If found enemy HQ...
-			if (robot.getType() == RobotType.HQ && Unit.enemyHQLocation == null) {
-				Unit.enemyHQLocation = robot.getLocation();
-				Unit.txn.sendLocationMessage(robot, Unit.enemyHQLocation, Math.min(10, rc.getTeamSoup()));
-			}
+			if (robot.getTeam() != myTeam) {
+				if (robot.getType() == RobotType.HQ && Unit.enemyHQLocation == null) {
+					Unit.enemyHQLocation = robot.getLocation();
+					targetLoc = Unit.enemyHQLocation;
+					Unit.txn.sendLocationMessage(robot, Unit.enemyHQLocation, Math.min(10, rc.getTeamSoup()));
+				}
 
-			// Get those landscapers (and maybe Miners).
-			if (robot.getLocation().distanceSquaredTo(loc) < closestDistance) {
-				closestDistance = robot.getLocation().distanceSquaredTo(loc);
-				closestEnemyRobot = robot;
+				// Get those landscapers (and maybe Miners).
+				if (robot.getLocation().distanceSquaredTo(loc) < closestDistance) {
+					closestDistance = robot.getLocation().distanceSquaredTo(loc);
+					closestEnemyRobot = robot;
+				}
+			} else {
+				if (robot.getType() == RobotType.LANDSCAPER) {
+					++localLandscaperCount;
+				} else if (robot.getType() == RobotType.NET_GUN) {
+					++localNetGunCount;
+				}
 			}
 		}
 
@@ -238,11 +275,13 @@ public class Miner extends Unit {
 			if (designSchoolsBuilt < 1 && rc.getTeamSoup() >= RobotType.DESIGN_SCHOOL.cost) {
 				aggroBuild(RobotType.DESIGN_SCHOOL);
 			}
-			if(netGunsBuilt < 1 && rc.getTeamSoup() >= RobotType.NET_GUN.cost) {
+			if(localNetGunCount < 1 && rc.getTeamSoup() >= RobotType.NET_GUN.cost && localLandscaperCount >= 1 && designSchoolsBuilt > 0) {
 				aggroBuild(RobotType.NET_GUN);
 			}
 
-			path.simpleTargetMovement(enemyHQLocation);
+			//if ( netGunsBuilt >= 1 || designSchoolsBuilt < 1 ) {
+				path.simpleTargetMovement(enemyHQLocation);
+			//}
 		} else {
 			if (rc.canSenseLocation(targetLoc)) {
 				hqSeachPhase += 1;
@@ -251,23 +290,6 @@ public class Miner extends Unit {
 
 			path.simpleTargetMovement(targetLoc);
 		}
-		// Search for soup locally.
-//		for (int dx = -6; dx <= 6; dx++) {
-//			for (int dy = -6; dy <= 6; dy++) {
-//				if (!rc.canSenseLocation(loc.translate(dx, dy))) continue;
-//				int soupAmount = rc.senseSoup(loc.translate(dx, dy));
-//			}
-//		}
-
-//        if (rc.getRoundNum() > 500 && rc.getTeamSoup() >= RobotType.VAPORATOR.cost && Math.random() > 0.5) {
-//			smartBuild(RobotType.VAPORATOR);
-//		}
-
-		// Randomly move but prefer lattice tiles.
-//        if (!randomWalkOnLattice(50)) {
-//        	path.tryMove(randomDirection());
-//        }
-
 	}
 
 	static void macroBuilding() throws GameActionException {
@@ -283,7 +305,11 @@ public class Miner extends Unit {
 		if (enemyDrone && !friendlyNetGun) {
 			smartBuild(RobotType.NET_GUN, true);
 		}
-		if (rc.getRoundNum() > 600 && rc.getTeamSoup() > 1000 && Math.random() < 0.3) {
+		if (rc.getRoundNum() > 300 && rc.getTeamSoup() > RobotType.DESIGN_SCHOOL.cost && Math.random() < 0.1 - (((float) rc.getRoundNum()) / 25000))  {
+			smartBuild(RobotType.DESIGN_SCHOOL);
+		} else if (rc.getRoundNum() > 1000 && rc.getTeamSoup() > 1000 && Math.random() < 0.1) {
+			smartBuild(RobotType.FULFILLMENT_CENTER, true);
+		} else if (rc.getRoundNum() > 600 && rc.getTeamSoup() > 1000 && Math.random() < 0.3) {
 			smartBuild(RobotType.VAPORATOR, true);
 		}
 	}

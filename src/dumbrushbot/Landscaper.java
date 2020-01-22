@@ -33,12 +33,12 @@ public class Landscaper extends Unit {
 	
 	public int priorityOfEnemyBuilding(RobotType type) {
 		switch(type) {
+		case HQ:
+			return 12;
 		case DESIGN_SCHOOL:
 			return 10;
 		case NET_GUN:
 			return 9;
-		case HQ:
-			return 8;
 		default:
 			return 1;
 		}
@@ -422,9 +422,20 @@ public class Landscaper extends Unit {
 
 		if (rc.getDirtCarrying() == 0) {
 			// Find a non-Lattice tile that is not the HQ and try to dig there.
-			for (Direction dir : directions) {
-				if (!hqLocation.equals(rc.getLocation().add(dir)) && !onLatticeTiles(loc.add(dir))) {
-					if (tryDig(dir)) break;
+			RobotInfo[] robots = rc.senseNearbyRobots(-1, rc.getTeam());
+			boolean foundBuildingInDanger = false;
+			for (RobotInfo robot : robots) {
+				if (robot.getType().isBuilding() && robot.getLocation().isAdjacentTo(loc) && robot.getDirtCarrying() > 0) {
+					rc.setIndicatorLine(loc, hqLocation, 0, 255, 0);
+					tryDig(loc.directionTo(robot.getLocation()));
+					foundBuildingInDanger = true;
+				}
+			}
+			if (!foundBuildingInDanger) {
+				for (Direction dir : directions) {
+					if (!hqLocation.equals(rc.getLocation().add(dir)) && !onLatticeTiles(loc.add(dir))) {
+						if (tryDig(dir)) break;
+					}
 				}
 			}
 		}

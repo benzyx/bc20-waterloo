@@ -26,7 +26,7 @@ class TransactionLogic {
 		rc = _rc;
 	}
 
-	static int secretKey = 0x31415926;
+	static int secretKey = 0x31415121;
     
     static int robotTypeToNum(RobotType type) {
     	switch (type) {

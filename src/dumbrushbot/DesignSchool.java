@@ -22,17 +22,53 @@ public class DesignSchool extends Unit {
     			}
     		}
 		}
-
-		if ((landscapersBuilt < 8 && rc.getTeamSoup() > 250 && Math.random() < 0.5) ||
-			(landscapersBuilt < 15 && rc.getTeamSoup() > 300 && Math.random() < 0.2) ||
-			(landscapersBuilt < 30 && rc.getTeamSoup() > 600 && Math.random() < 0.1)) {
-    		for (Direction dir : directions) {
-    			if (tryBuild(RobotType.LANDSCAPER, dir)) {
-    				landscapersBuilt++;
-    				break;
-    			}
-    		}
+		RobotInfo[] robots = rc.senseNearbyRobots(-1);
+		if (rc.canSenseLocation(enemyHQLocation)) {
+			int localNetGuns = 0;
+			int localNetGunCount = 0;
+			int localEnemyDroneCount = 0;
+			Team myTeam = rc.getTeam();
+			for (RobotInfo robot : robots) {
+				// If found enemy HQ...
+				if (robot.getTeam() != myTeam) {
+					if (robot.getType() == RobotType.NET_GUN) {
+						++localEnemyDroneCount;
+					}
+				} else {
+					if (robot.getType() == RobotType.NET_GUN) {
+						++localNetGunCount;
+					}
+				}
+			}
+			if (localNetGunCount == 0 && localEnemyDroneCount > 0) {
+				return;
+			}
+			if ((landscapersBuilt < 1 && rc.getTeamSoup() > RobotType.LANDSCAPER.cost) ||
+					(localNetGunCount > 0 && rc.getTeamSoup() > RobotType.LANDSCAPER.cost)) {
+				int minDist = 10000;
+				Direction dirToEnemyHQ = Direction.NORTH;
+				for (Direction dir : directions) {
+					int distToEnemyHQ = rc.getLocation().add(dir).distanceSquaredTo(Unit.enemyHQLocation);
+					if (rc.canBuildRobot(RobotType.LANDSCAPER, dir) && distToEnemyHQ <= minDist) {
+						minDist = distToEnemyHQ;
+						dirToEnemyHQ = dir;
+					}
+				}
+				if (minDist < 10000 && tryBuild(RobotType.LANDSCAPER, dirToEnemyHQ)) {
+					landscapersBuilt++;
+				}
+			}
+		} else {
+			if ((landscapersBuilt < 8 && rc.getTeamSoup() > 250 && Math.random() < 0.5) ||
+					(landscapersBuilt < 15 && rc.getTeamSoup() > 300 && Math.random() < 0.2) ||
+					(landscapersBuilt < 30 && rc.getTeamSoup() > 600 && Math.random() < 0.1)) {
+				for (Direction dir : directions) {
+					if (tryBuild(RobotType.LANDSCAPER, dir)) {
+						landscapersBuilt++;
+						break;
+					}
+				}
+			}
 		}
-		
 	}
 }
