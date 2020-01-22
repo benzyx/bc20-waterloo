@@ -23,9 +23,34 @@ public class HQ extends Unit {
     	txn.sendLocationMessage(rc.senseRobotAtLocation(hqLocation), hqLocation, 11);
 	}
 
+	public void rushDefense() throws GameActionException{
+        RobotInfo[] robots = rc.senseNearbyRobots();
+        int enemyRobotCount = 0;
+        Team ourTeam = rc.getTeam();
+        for (RobotInfo robot : robots) {
+            if (robot.getTeam() != ourTeam) {
+                ++enemyRobotCount;
+                // Shoot down enemies that appear.
+                if (rc.canShootUnit(robot.getID())) {
+                    rc.shootUnit(robot.getID());
+                }
+            }
+        }
+
+        // Detect rushes.
+        if (enemyRobotCount == 0 || enemyRobotCount <= 4 && rc.getRoundNum() > 300) {
+            beingRushed = false;
+            txn.sendRushDefeatedMessage(rc.senseRobotAtLocation(rc.getLocation()),11);
+        }
+    }
+
 	@Override
 	public void run() throws GameActionException {
 		txn.updateToLatestBlock();
+		if ( beingRushed ) {
+		    rushDefense();
+		    return;
+        }
 		
 		MapLocation loc = rc.getLocation();
 
@@ -75,12 +100,11 @@ public class HQ extends Unit {
     		
     		// Detect rushes.
     		if (!beingRushed && robot.getTeam() == rc.getTeam().opponent()) {
-    			if (rc.getRoundNum() < 300 && robot.getType() == RobotType.MINER || robot.getType() == RobotType.LANDSCAPER || robot.getType().isBuilding()) {
+    			if (rc.getRoundNum() < 300 && (robot.getType() == RobotType.MINER || robot.getType() == RobotType.LANDSCAPER || robot.getType().isBuilding())) {
     				beingRushed = true;
     				txn.sendRushDetectedMessage(robot, 11);
     			}
     		}
     	}
 	}
-
 }

@@ -16,6 +16,7 @@ class TransactionLogic {
 		UNIT_SPAWNED,
 		WALL_STATUS,
 		WALL_COMPLETE,
+		RUSH_DEFEATED,
 		RUSH_DETECTED,
 		SOUP_LOCATION,
 	}
@@ -26,7 +27,7 @@ class TransactionLogic {
 		rc = _rc;
 	}
 
-	static int secretKey = 0x31415926;
+	static int secretKey = 0x31222922;
     
     static int robotTypeToNum(RobotType type) {
     	switch (type) {
@@ -91,14 +92,26 @@ class TransactionLogic {
     	int[] message = {1, MessageType.RUSH_DETECTED.ordinal(), 0, robotTypeToNum(robot.getType()), 0, loc.x, loc.y};
     	rc.submitTransaction(applyXORtoMessage(message, cost, rc.getRoundNum()), cost);
     }
+
+	void sendRushDefeatedMessage(RobotInfo robot, int cost) throws GameActionException {
+		MapLocation loc = robot.getLocation();
+		int[] message = {1, MessageType.RUSH_DEFEATED.ordinal(), 0, robotTypeToNum(robot.getType()), 0, loc.x, loc.y};
+		rc.submitTransaction(applyXORtoMessage(message, cost, rc.getRoundNum()), cost);
+	}
     
     static void readRushDetectedMessage(int[] message) {
-    	// Friendly HQ.
-    	MapLocation location = new MapLocation(message[5], message[6]);
-    	Unit.beingRushed = true;
+		// Friendly HQ.
+		MapLocation location = new MapLocation(message[5], message[6]);
+		Unit.beingRushed = true;
 		Unit.rushTargetLocation = location;
-    }
-    
+	}
+
+	static void readRushDefeatedMessage(int[] message) {
+		// Friendly HQ.
+		MapLocation location = new MapLocation(message[5], message[6]);
+		Unit.beingRushed = false;
+		Unit.rushTargetLocation = location;
+	}
     
     /**
      * Spawn message, used to keep track of macroeconomic stats.
@@ -186,6 +199,7 @@ class TransactionLogic {
     		return;
     	}
     	if (message[1] == MessageType.LOCATION.ordinal()) readLocationMessage(message);
+		if (message[1] == MessageType.RUSH_DEFEATED.ordinal()) readRushDefeatedMessage(message);
     	if (message[1] == MessageType.RUSH_DETECTED.ordinal()) readRushDetectedMessage(message);
     	if (message[1] == MessageType.UNIT_SPAWNED.ordinal()) readSpawnMessage(message);
     	if (message[1] == MessageType.SOUP_LOCATION.ordinal()) readSoupLocationMessage(message);
