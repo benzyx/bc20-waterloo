@@ -1,4 +1,4 @@
-package escudo;
+package dumbrushbot;
 
 import battlecode.common.*;
 
