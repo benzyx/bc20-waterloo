@@ -166,12 +166,13 @@ class TransactionLogic {
      * @param cost
      * @throws GameActionException
      */
-    void sendSoupLocationMessage(RobotInfo robotInfo, MapLocation loc, int cost) throws GameActionException {
-    	
+    void sendSoupLocationMessage(MapLocation loc, int cost) throws GameActionException {
+    	int[] message = {1, MessageType.SOUP_LOCATION.ordinal(), 0, 0, 0, loc.x, loc.y};
+    	rc.submitTransaction(applyXORtoMessage(message, cost, rc.getRoundNum()), cost);
     }
     
     static void readSoupLocationMessage(int[] message) throws GameActionException {
-    	
+    	Miner.lastSoupTileFromComms = new MapLocation(message[5],message[6]);
     }
 
     /**

@@ -17,6 +17,7 @@ public class Unit {
     
     public static boolean wallComplete = false;
     public static boolean beingRushed = false;
+
     public static MapLocation rushTargetLocation;
 
     static final Direction[] directions = {
