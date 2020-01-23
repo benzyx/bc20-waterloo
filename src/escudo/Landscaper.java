@@ -27,7 +27,7 @@ public class Landscaper extends Unit {
 	public Landscaper(RobotController _rc) throws GameActionException {
 		super(_rc);
     	spawnLocation = rc.getLocation();
-    	txn.sendSpawnMessage(RobotType.LANDSCAPER, 1);
+    	if (rc.getTeamSoup() > 0) txn.sendSpawnMessage(RobotType.LANDSCAPER, 1);
 	}
 	
 	public int priorityOfEnemyBuilding(RobotType type) {
@@ -37,7 +37,7 @@ public class Landscaper extends Unit {
 		case NET_GUN:
 			return 9;
 		case HQ:
-			return 8;
+			return 11;
 		default:
 			return 1;
 		}
@@ -79,7 +79,7 @@ public class Landscaper extends Unit {
 			mode = LandscaperMode.ATTACK;
     	}
 		else if (rc.getRoundNum() < 300 && !beingRushed) {
-    		latticeElevation = hqElevation + 3;
+    		latticeElevation = Math.max(hqElevation + 3, 3);
     		mode = LandscaperMode.EARLY_TERRAFORM;
     	}
     	else if (loc.isAdjacentTo(hqLocation))
@@ -323,6 +323,7 @@ public class Landscaper extends Unit {
 			for (int dy = -4; dy <= 4; dy++) {
 				MapLocation potentialFillSpot = rc.getLocation().translate(dx, dy);
 				// only care about locations we can sense
+				if (!rc.onTheMap(potentialFillSpot)) continue;
 				if (!rc.canSenseLocation(potentialFillSpot)) continue;
 				if (!onLatticeTiles(potentialFillSpot)) continue;
 				if (path.isPastStuckTarget(potentialFillSpot)) continue;

@@ -83,6 +83,8 @@ class PathingLogic {
      */
     static boolean isSafeToMoveInDirection(Direction dir) throws GameActionException {
     	MapLocation moveSpot = rc.getLocation().add(dir);
+    	
+    	// Special case for drones.
     	if (rc.getType() == RobotType.DELIVERY_DRONE) {
     		if (Unit.enemyHQLocation == null) return true;
     		
@@ -97,9 +99,7 @@ class PathingLogic {
     		
     		return canMove;
     	}
-    	else {
-        	return (rc.canSenseLocation(moveSpot) && !rc.senseFlooding(moveSpot));
-    	}
+        return (rc.canSenseLocation(moveSpot) && !rc.senseFlooding(moveSpot));
     	
     }
     

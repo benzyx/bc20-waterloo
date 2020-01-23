@@ -79,6 +79,15 @@ public class Drone extends Unit {
         int closestDistance = 999999999;
         for (RobotInfo robot : robots) {
         	MapLocation robotLoc = robot.getLocation();
+        	
+        	// Most important case: miner which is stuck next to HQ (thus fucking up our wall).
+        	if (robot.getType() == RobotType.MINER
+        			&& robot.getLocation().isAdjacentTo(hqLocation)
+        			&& rc.senseElevation(robot.getLocation()) > hqElevation + 45) {
+        		closestDistance = 0;
+        		closestAllyRobot = robot;
+        	}
+        	
         	// Get those landscapers (and maybe Miners).
         	if ((robot.getType() == RobotType.MINER || robot.getType() == RobotType.LANDSCAPER)
         			&& robotLoc.distanceSquaredTo(loc) < closestDistance) {
@@ -128,25 +137,28 @@ public class Drone extends Unit {
 	 * @throws GameActionException 
 	 */
 	public void roam(MapLocation loc) throws GameActionException {
-		RobotInfo robot = senseEnemies();
-		if (robot != null) {
-			navigateToPickUpRobot(robot);
-			return;
-		}
 		
-		// Help out stuck units
-		robot = senseStuckAllies();
-		if (robot != null) {
-			navigateToPickUpRobot(robot);
-			return;
-		}
-		
-		// Landscaper Taxi if wall not complete.
-		if (rc.getRoundNum() > wallCutoffRound && !wallComplete) {
-			robot = getNearestLandscaper();
+		if (!rc.isCurrentlyHoldingUnit()) {
+			RobotInfo robot = senseEnemies();
 			if (robot != null) {
 				navigateToPickUpRobot(robot);
 				return;
+			}
+			
+			// Help out stuck units
+			robot = senseStuckAllies();
+			if (robot != null) {
+				navigateToPickUpRobot(robot);
+				return;
+			}
+			
+			// Landscaper Taxi if wall not complete.
+			if (rc.getRoundNum() > wallCutoffRound && !wallComplete) {
+				robot = getNearestLandscaper();
+				if (robot != null) {
+					navigateToPickUpRobot(robot);
+					return;
+				}
 			}
 		}
 
@@ -197,10 +209,10 @@ public class Drone extends Unit {
 	public void navigateToDropOff() throws GameActionException {
     	MapLocation loc = rc.getLocation();
 		if (loc.isAdjacentTo(dropOffLocation)) {
-			System.out.println("Adjacent to dropoff!");
 			tryDrop(loc.directionTo(dropOffLocation));
 		}
 		else {
+			rc.setIndicatorLine(loc, dropOffLocation, 0, 255, 255);
 			path.simpleTargetMovement(dropOffLocation);
 		}
 	}
@@ -262,6 +274,7 @@ public class Drone extends Unit {
 	// Drop off our ally.
 	public void dropOffAlly() throws GameActionException {
 		MapLocation loc = rc.getLocation();
+
 		if (!wallComplete
 				&& rc.getRoundNum() > wallCutoffRound
 				&& robotCarrying.getTeam() == rc.getTeam()
@@ -319,7 +332,7 @@ public class Drone extends Unit {
 		
 		// Catch up on messages.
 		txn.updateToLatestBlock();
-		
+
 		// Make sure we don't get shot down.
 		senseNetGuns();
 
@@ -355,6 +368,11 @@ public class Drone extends Unit {
         	if (rc.isCurrentlyHoldingUnit() && robotCarrying.getTeam() == rc.getTeam()) {
         		dropOffAlly();
         	}
+        	
+        	if (dropOffLocation != null && dropOffLocation.equals(hqLocation)) {
+        		dropOffLocation = null;
+        	}
+
         	roam(null);
         	break;
         case HOLDING_ENEMY:

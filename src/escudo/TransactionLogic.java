@@ -65,7 +65,7 @@ class TransactionLogic {
     }
     
     static int[] applyXORtoMessage(int[] message, int cost, int roundNum) {
-    	int signature = (cost << 16) | roundNum;
+    	int signature = (roundNum << 16) | cost;
     	for (int i = 0; i < message.length; i++) {
     		message[i] = message[i] ^ secretKey ^ signature;
     	}

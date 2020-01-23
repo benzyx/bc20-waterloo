@@ -173,17 +173,10 @@ public class Miner extends Unit {
 		// Handle Rushing by building a fucking fast 
 		if (beingRushed && rc.getRoundNum() < 500) {
 			// Build a design school asap.
-			if (designSchoolsBuilt < 1) {
+			if (designSchoolsSpawned < 1) {
 				smartBuild(RobotType.DESIGN_SCHOOL, true);
 			}
-			if (fulfillmentCentersBuilt < 1) {
-				smartBuild(RobotType.FULFILLMENT_CENTER, true);
-			}
-			// Build a design school asap.
-			if (designSchoolsBuilt < 2 && rc.getRoundNum() > 250) {
-				smartBuild(RobotType.DESIGN_SCHOOL, true);
-			}
-			if (fulfillmentCentersBuilt < 2 && rc.getRoundNum() > 250) {
+			if (fulfillmentCentersSpawned < 1) {
 				smartBuild(RobotType.FULFILLMENT_CENTER, true);
 			}
 		}
@@ -193,13 +186,16 @@ public class Miner extends Unit {
             if (built != null) buildingOrderIndex++;
         }
         
-        if (buildingOrderIndex == buildingOrder.length && rc.getRoundNum() > 600 && rc.getTeamSoup() >= RobotType.FULFILLMENT_CENTER.cost && lateFullfillmentCenter < 2) {
-        	MapLocation built = smartBuild(RobotType.FULFILLMENT_CENTER);
-        	if (built != null) lateFullfillmentCenter++;
+        if (buildingOrderIndex == buildingOrder.length
+        		&& rc.getTeamSoup() >= RobotType.FULFILLMENT_CENTER.cost
+        		&& fulfillmentCentersSpawned * 500 < rc.getRoundNum()) {
+        	smartBuild(RobotType.FULFILLMENT_CENTER);
         }
-        if (buildingOrderIndex == buildingOrder.length && rc.getRoundNum() > 600 && rc.getTeamSoup() >= RobotType.DESIGN_SCHOOL.cost && lateDesignSchool < 2) {
-        	MapLocation built = smartBuild(RobotType.DESIGN_SCHOOL);
-        	if (built != null) lateDesignSchool++;
+
+        if (buildingOrderIndex == buildingOrder.length
+        		&& rc.getTeamSoup() >= RobotType.DESIGN_SCHOOL.cost
+        		&& designSchoolsSpawned * 500 < rc.getRoundNum()) {
+        	smartBuild(RobotType.DESIGN_SCHOOL);
         }
         
         if (buildingOrderIndex == buildingOrder.length && rc.getRoundNum() > 150 && rc.getTeamSoup() >= RobotType.VAPORATOR.cost && Math.random() > 0.5) {
