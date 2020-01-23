@@ -96,11 +96,33 @@ public class Drone extends Unit {
             		closestDistance = robot.getLocation().distanceSquaredTo(loc);
             		closestAllyRobot = robot;
         		}
-        		
         	}
         }
         return closestAllyRobot;
 	}
+	
+	public RobotInfo getNearestLandscaper() throws GameActionException {
+		MapLocation loc = rc.getLocation();
+        RobotInfo[] robots = rc.senseNearbyRobots(-1, rc.getTeam());
+        
+        
+        // Look at all the ally robots.
+        RobotInfo closestLandscaper = null;
+        int closestDistance = 999999999;
+		// Friendly Landscaper which is not adjacent to either HQ.
+		for (RobotInfo robot : robots) {
+			if (robot.getType() == RobotType.LANDSCAPER
+					&& !robot.getLocation().isAdjacentTo(hqLocation)
+					&& (enemyHQLocation == null || !robot.getLocation().isAdjacentTo(enemyHQLocation))
+					&& closestDistance > loc.distanceSquaredTo(robot.getLocation())) {
+				closestLandscaper = robot;
+				closestDistance = loc.distanceSquaredTo(robot.getLocation());
+				
+			}
+		}
+		return closestLandscaper;
+	}
+
 	/**
 	 * Roaming: trying to find the opponent base.
 	 * @throws GameActionException 
@@ -108,31 +130,26 @@ public class Drone extends Unit {
 	public void roam(MapLocation loc) throws GameActionException {
 		RobotInfo robot = senseEnemies();
 		if (robot != null) {
-			if (tryPickUp(robot.getID())) {
-				robotCarrying = robot;
-				path.resetTarget();
-			}
-			else {
-				path.simpleTargetMovement(robot.getLocation());
-			}
-			
+			navigateToPickUpRobot(robot);
 			return;
 		}
 		
-
+		// Help out stuck units
 		robot = senseStuckAllies();
 		if (robot != null) {
-			if (tryPickUp(robot.getID())) {
-				robotCarrying = robot;
-				path.resetTarget();
-			}
-			else {
-				rc.setIndicatorLine(rc.getLocation(), robot.getLocation(), 255, 0, 255);
-				path.simpleTargetMovement(robot.getLocation());
-			}
-			
+			navigateToPickUpRobot(robot);
 			return;
 		}
+		
+		// Landscaper Taxi if wall not complete.
+		if (rc.getRoundNum() > wallCutoffRound && !wallComplete) {
+			robot = getNearestLandscaper();
+			if (robot != null) {
+				navigateToPickUpRobot(robot);
+				return;
+			}
+		}
+
 
 		if (loc == null) {
 			path.simpleTargetMovement();
@@ -157,9 +174,7 @@ public class Drone extends Unit {
 
     	for (int dx = -4; dx <= 4; dx++) {
     		for (int dy = -4; dy <= 4; dy++) {
-    			
     			if (dx == 0 && dy == 0) continue;
-
     			MapLocation dropTile = loc.translate(dx, dy);
     			if (!rc.canSenseLocation(dropTile)) continue;
 
@@ -187,6 +202,22 @@ public class Drone extends Unit {
 		}
 		else {
 			path.simpleTargetMovement(dropOffLocation);
+		}
+	}
+	
+	/**
+	 * Chase after the robot and pick him up!
+	 * @param robot
+	 * @throws GameActionException
+	 */
+	public void navigateToPickUpRobot(RobotInfo robot) throws GameActionException {
+		if (tryPickUp(robot.getID())) {
+			robotCarrying = robot;
+			path.resetTarget();
+		}
+		else {
+			rc.setIndicatorLine(rc.getLocation(), robot.getLocation(), 255, 0, 255);
+			path.simpleTargetMovement(robot.getLocation());
 		}
 	}
 
@@ -320,12 +351,10 @@ public class Drone extends Unit {
 
         switch(mode) {
         case ROAM:
-        	
         	// Safely drop off our friendly dudes.
         	if (rc.isCurrentlyHoldingUnit() && robotCarrying.getTeam() == rc.getTeam()) {
         		dropOffAlly();
         	}
-
         	roam(null);
         	break;
         case HOLDING_ENEMY:
@@ -334,25 +363,11 @@ public class Drone extends Unit {
 		case AWAITING_STRIKE:
 			yoloMode = false;
 			
-			// Only do this if your ID is even. This way we don't get a drop with all drones carrying landscapers (which would be sad as fuck).
-			if (!rc.isCurrentlyHoldingUnit() && rc.getID() % 2 == 0) {
-				RobotInfo[] robots = rc.senseNearbyRobots(-1, rc.getTeam());
-				// Friendly Landscaper which is not adjacent to either HQ.
-				for (RobotInfo robot : robots) {
-					if (robot.getType() == RobotType.LANDSCAPER &&
-							!robot.getLocation().isAdjacentTo(hqLocation) &&
-							!robot.getLocation().isAdjacentTo(enemyHQLocation)) {
-						
-						// Try to pick up or Move towards it.
-						if (tryPickUp(robot.getID())) {
-							robotCarrying = robot;
-							path.resetTarget();
-						}
-						else {
-							path.simpleTargetMovement(robot.getLocation());
-						}
-						break;
-					}
+			// Only do this if your ID is 0 mod 4. This way we don't get a drop with all drones carrying landscapers (which would be sad as fuck).
+			if (!rc.isCurrentlyHoldingUnit() && rc.getID() % 4 == 0) {
+				RobotInfo landscaper = getNearestLandscaper();
+				if (landscaper != null) {
+					navigateToPickUpRobot(landscaper);
 				}
 			}
 			roam(enemyHQLocation);

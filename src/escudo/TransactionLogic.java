@@ -81,7 +81,7 @@ class TransactionLogic {
     	int[] message = {1, MessageType.WALL_COMPLETE.ordinal(), 0, 0, 0, 0, 0};
     	rc.submitTransaction(applyXORtoMessage(message, cost, rc.getRoundNum()), cost);
     }
-    static void readWallCompleteMessage() {
+    static void readWallCompleteMessage(int[] message) {
     	Unit.wallComplete = true;
     }
     
@@ -200,6 +200,7 @@ class TransactionLogic {
     	if (message[1] == MessageType.RUSH_DETECTED.ordinal()) readRushDetectedMessage(message);
     	if (message[1] == MessageType.UNIT_SPAWNED.ordinal()) readSpawnMessage(message);
     	if (message[1] == MessageType.SOUP_LOCATION.ordinal()) readSoupLocationMessage(message);
+    	if (message[1] == MessageType.WALL_COMPLETE.ordinal()) readWallCompleteMessage(message);
     }
     
     void readBlock(Transaction[] ts, int roundNum) throws GameActionException {

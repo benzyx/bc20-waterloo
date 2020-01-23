@@ -21,8 +21,9 @@ class PathingLogic {
 	static int lastLocationsIndex = 0;
 	static MapLocation[] lastLocationsOnPath = new MapLocation[100];
 	
+	final int stuckTargetMemorySize = 10;
 	
-    MapLocation[] lastStuckTargetTiles = new MapLocation[5];
+    MapLocation[] lastStuckTargetTiles = new MapLocation[stuckTargetMemorySize];
     int lastStuckTargetTilesIndex = 0;
     
 
@@ -258,8 +259,8 @@ class PathingLogic {
     }
 
     boolean isStuck() {
-    	if (stuckCounter > 2) {
-    		lastStuckTargetTiles[lastStuckTargetTilesIndex % 5] = targetLocation;
+    	if (stuckCounter >= 3) {
+    		lastStuckTargetTiles[lastStuckTargetTilesIndex % stuckTargetMemorySize] = targetLocation;
     		lastStuckTargetTilesIndex++;
     		return true;
     	}

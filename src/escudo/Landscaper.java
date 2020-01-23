@@ -376,8 +376,10 @@ public class Landscaper extends Unit {
 		// Has max dirt capacity - start depositing dirt.
 		else {
 			
+			// Have to reset terraform target too if its null.
 			if (path.isStuck()) {
-				System.out.println("I am stuck!");
+				rc.setIndicatorDot(loc, 255, 255, 255);
+				terraformTarget = null;
 				path.resetTarget();
 			}
 			
