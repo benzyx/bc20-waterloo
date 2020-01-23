@@ -437,7 +437,7 @@ public class Landscaper extends Unit {
 		if (rc.canSenseLocation(hqLocation)) {
 			RobotInfo hqInfo = rc.senseRobotAtLocation(hqLocation);
 			if ( loc.isAdjacentTo(hqLocation) ) {
-				if ( hqInfo.getDirtCarrying() > 0 && rc.getDirtCarrying() < RobotType.LANDSCAPER.dirtLimit ) {
+				if ( hqInfo.getDirtCarrying() > 10 && rc.getDirtCarrying() < RobotType.LANDSCAPER.dirtLimit ) {
 					tryDig(loc.directionTo(hqLocation));
 				} else if ( rc.getDirtCarrying() == RobotType.LANDSCAPER.dirtLimit ) {
 					if (attackTarget != null && loc.isAdjacentTo(attackTarget)) {
@@ -446,8 +446,28 @@ public class Landscaper extends Unit {
 						tryDeposit(Direction.CENTER);
 					}
 				} else { // no threat to hq
-					if (attackTarget != null && loc.isAdjacentTo(attackTarget)) {
-						attack(attackTarget);
+					for (Direction dir: directions) {
+						MapLocation candidateLoc = loc.add(dir);
+						if (!rc.onTheMap(candidateLoc)) {
+							continue;
+						}
+						RobotInfo robot = rc.senseRobotAtLocation(candidateLoc);
+						if (robot != null) {
+							if (robot.getTeam() == rc.getTeam() && robot.getType().isBuilding() && robot.getDirtCarrying() > 0){
+								if (tryDig(dir)) {
+									rc.setIndicatorLine(loc, candidateLoc, 0, 128, 0);
+									break;
+								}
+							} else if (robot.getTeam() != rc.getTeam() && robot.getType().isBuilding()) {
+								if ( rc.getDirtCarrying() > 0 ) {
+									tryDeposit(dir);
+									break;
+								} else {
+									smartDig(loc, true);
+									break;
+								}
+							}
+						}
 					}
 				}
 			} else {
@@ -455,22 +475,55 @@ public class Landscaper extends Unit {
 					rc.setIndicatorLine(loc, hqLocation, 255, 0, 0);
 					path.simpleTargetMovement(hqLocation);
 				} else if ( attackTarget != null ){
-					attack(attackTarget);
+					attack(attackTarget, false);
 				} else {
 					path.simpleTargetMovement(hqLocation);
 				}
 			}
 		} else {
 			if (attackTarget != null) {
-				attack(attackTarget);
+				attack(attackTarget, false);
 			} else {
 				path.simpleTargetMovement(hqLocation);
 			}
 		}
 	}
-	
+
+	static public boolean smartDig(MapLocation loc, boolean nonLattice) throws GameActionException{
+		// Find a non-Lattice tile that is not the HQ and try to dig there.
+		for (Direction dir : directions) {
+			if (!attackTarget.equals(loc.add(dir))
+					&& !hqLocation.equals(loc.add(dir))
+					&& !onLatticeTiles(loc.add(dir))) {
+				if (tryDig(dir)) {
+					rc.setIndicatorLine(loc, loc.add(dir), 0, 128, 0);
+					return true;
+				}
+			}
+		}
+		if (nonLattice) {
+			// If none of the directions lead to a non-Lattice tile, then I must be standing on a it.
+			// Pick a random direction?
+			for (Direction dir : directions) {
+				if (!attackTarget.equals(loc.add(dir))
+						&& !hqLocation.equals(loc.add(dir))) {
+					if (tryDig(dir)) {
+						rc.setIndicatorLine(loc, loc.add(dir), 0, 128, 0);
+						return true;
+					}
+				}
+			}
+			if (tryDig(Direction.CENTER)) {
+				rc.setIndicatorDot(loc, 0, 128, 0);
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	// Move towards and kill that bitch?
-	static public void attack(MapLocation attackTarget) throws GameActionException{
+	static public void attack(MapLocation attackTarget, boolean digThenWalk) throws GameActionException{
 		MapLocation loc = rc.getLocation();
 		rc.setIndicatorLine(loc, attackTarget, 255, 255, 0);
 		
@@ -493,41 +546,12 @@ public class Landscaper extends Unit {
 			}
 		}
 
-		if (rc.getDirtCarrying() == 0) {
-			// Find a non-Lattice tile that is not the HQ and try to dig there.
-			for (Direction dir : directions) {
-				if (!attackTarget.equals(loc.add(dir))
-						&& !hqLocation.equals(loc.add(dir))
-						&& !onLatticeTiles(loc.add(dir))) {
-					if (tryDig(dir)) {
-						rc.setIndicatorLine(loc, loc.add(dir), 0, 128, 0);
-						return;
-					}
-				}
-			}
-			// If none of the directions lead to a non-Lattice tile, then I must be standing on a it.
-			// Pick a random direction?
-			for (Direction dir : directions) {
-				if (!attackTarget.equals(loc.add(dir))
-						&& !hqLocation.equals(loc.add(dir))) {
-					if (tryDig(dir)) {
-						rc.setIndicatorLine(loc, loc.add(dir), 0, 128, 0);
-						return;
-					}
-				}
-			}
-			// Still no? dig underneath myself I guess.
-			if (tryDig(Direction.CENTER)) {
-				rc.setIndicatorDot(loc, 0, 128, 0);
-			}
+		if (rc.getDirtCarrying() == 0 && digThenWalk) {
+			smartDig(loc, true);
 		}
 		else {
 			navigateToDeposit(attackTarget, false);
 		}
-	}
-	
-	static public void rush() {
-		
 	}
 	
 	static public void navigateToDeposit(MapLocation dest, boolean latticeOnly) throws GameActionException {

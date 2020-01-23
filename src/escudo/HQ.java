@@ -38,7 +38,7 @@ public class HQ extends Unit {
 		}
 
 		// Detect rushes.
-		if (enemyRobotCount == 0 || enemyRobotCount <= 4 && rc.getRoundNum() > 300) {
+		if (enemyRobotCount == 0 || rc.getRoundNum() > 300) {
 			beingRushed = false;
 			int bid = Math.min(11, rc.getTeamSoup());
 			if (bid > 0) {

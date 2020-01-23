@@ -174,7 +174,7 @@ public class Miner extends Unit {
 		return false;
 	}
 
-	static MapLocation antiAggroBuild(RobotType robotType) throws GameActionException{
+	static MapLocation antiAggroBuild(RobotType robotType, RobotInfo[] nearbyRobots) throws GameActionException{
 		Direction targetDir = rc.getLocation().directionTo(hqLocation);
 		if (hqLocation.isAdjacentTo(rc.getLocation().add(targetDir).add(targetDir))) {
 			if (tryBuild(robotType, targetDir)) {
@@ -183,11 +183,27 @@ public class Miner extends Unit {
 			}
 		}
 
-
+		int friendlyLandscaperCount;
+		int enemyLandscaperCount;
+		Team ourTeam = rc.getTeam();
 		for (Direction dir : directions) {
 			// Do not build anything adjacent to our HQ.
 			MapLocation potentialBuildLocation = rc.getLocation().add(dir);
 			if (potentialBuildLocation.isAdjacentTo(hqLocation)) {
+				continue;
+			}
+			friendlyLandscaperCount = 0;
+			enemyLandscaperCount = 0;
+			for (RobotInfo robot : nearbyRobots) {
+				if ( robot.getType() == RobotType.LANDSCAPER ){
+					if ( robot.getTeam() == ourTeam ) {
+						++friendlyLandscaperCount;
+					} else {
+						++enemyLandscaperCount;
+					}
+				}
+			}
+			if (enemyLandscaperCount > friendlyLandscaperCount + 1) {
 				continue;
 			}
 			if (tryBuild(robotType, dir)) {
@@ -222,9 +238,9 @@ public class Miner extends Unit {
 			}
 		}
 		if (localDesignSchoolCount < 1 && rc.getTeamSoup() >= RobotType.DESIGN_SCHOOL.cost) {
-			antiAggroBuild(RobotType.DESIGN_SCHOOL);
+			antiAggroBuild(RobotType.DESIGN_SCHOOL, robots);
 		} else if (fulfillmentCentersBuilt < 1 && friendlyLandscaperCount >= 1) {
-			antiAggroBuild(RobotType.FULFILLMENT_CENTER);
+			antiAggroBuild(RobotType.FULFILLMENT_CENTER, robots);
 		}
 		path.simpleTargetMovement(hqLocation);
 	}

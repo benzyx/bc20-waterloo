@@ -312,9 +312,9 @@ public class Miner extends Unit {
 		if (enemyDrone && !friendlyNetGun) {
 			smartBuild(RobotType.NET_GUN, true);
 		}
-		if (rc.getTeamSoup() > 1000 && Math.random() < 0.1) {
+		if (rc.getTeamSoup() > 600 && Math.random() < 0.1) {
 			smartBuild(RobotType.VAPORATOR, true);
-		} else if (rc.getRoundNum() > 300 && rc.getTeamSoup() > RobotType.DESIGN_SCHOOL.cost + 100 && Math.random() < 0.05)  {
+		} else if (rc.getRoundNum() > 200 && rc.getTeamSoup() > RobotType.LANDSCAPER.cost + RobotType.DESIGN_SCHOOL.cost && Math.random() < 0.05)  {
 			smartBuild(RobotType.DESIGN_SCHOOL);
 		} else if (rc.getRoundNum() > 400 && rc.getTeamSoup() > RobotType.FULFILLMENT_CENTER.cost + 200 && Math.random() < 0.3) {
 			smartBuild(RobotType.FULFILLMENT_CENTER, true);

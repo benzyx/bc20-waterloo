@@ -23,7 +23,7 @@ public class DesignSchool extends Unit {
     		}
 		}
 		RobotInfo[] robots = rc.senseNearbyRobots(-1);
-		if (rc.canSenseLocation(enemyHQLocation)) {
+		if (enemyHQLocation != null && rc.canSenseLocation(enemyHQLocation)) {
 			int localNetGuns = 0;
 			int localNetGunCount = 0;
 			int localEnemyDroneCount = 0;
@@ -59,6 +59,7 @@ public class DesignSchool extends Unit {
 				}
 			}
 		} else {
+			rc.setIndicatorDot(rc.getLocation(), 0,0,0);
 			if ((landscapersBuilt < 8 && rc.getTeamSoup() > 250) ||
 					(landscapersBuilt < 15 && rc.getTeamSoup() > 300 && Math.random() < 0.5) ||
 					(landscapersBuilt < 30 && rc.getTeamSoup() > 600 && Math.random() < 0.1)) {
