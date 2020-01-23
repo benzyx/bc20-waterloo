@@ -160,8 +160,7 @@ public class Miner extends Unit {
 
 		if (enemyDrone) {
 			rc.setIndicatorDot(loc, 0,0,0);
-			// boolean highAlert = enemyDroneLoc.isWithinDistanceSquared(loc, 16);
-			boolean highAlert = true;
+			boolean highAlert = enemyDroneLoc.isWithinDistanceSquared(loc, 15);
 			boolean built = false;
 			if(!friendlyNetGun && !loc.isAdjacentTo(enemyDroneLoc)) {
 				built = (smartBuild(RobotType.NET_GUN) != null);
