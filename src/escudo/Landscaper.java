@@ -43,21 +43,26 @@ public class Landscaper extends Unit {
 		}
 	}
 	
-	public MapLocation senseHighestPriorityNearbyEnemyBuilding() {
+	public MapLocation senseHighestPriorityNearbyEnemyBuilding(boolean adjacent) {
 		RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
 		
 		int distance = 999999999;
 		int priority = 0;
 		MapLocation bestEnemyLoc = null;
-		
+		MapLocation loc = rc.getLocation();
+
 		for (RobotInfo enemy : enemies) {
+			MapLocation enemyLoc = enemy.getLocation();
 			if (enemy.getType().isBuilding() &&
 					(priority < priorityOfEnemyBuilding(enemy.getType()) ||
 							(priority == priorityOfEnemyBuilding(enemy.getType()) &&
-							 distance > rc.getLocation().distanceSquaredTo(enemy.getLocation())))) {
+							 distance > loc.distanceSquaredTo(enemyLoc)))) {
+				if (adjacent && loc.isAdjacentTo(enemyLoc)) {
+					return enemyLoc;
+				}
 				priority = priorityOfEnemyBuilding(enemy.getType());
-				distance = rc.getLocation().distanceSquaredTo(enemy.getLocation());
-				bestEnemyLoc = enemy.getLocation();
+				distance = loc.distanceSquaredTo(enemyLoc);
+				bestEnemyLoc = enemyLoc;
 			}
 		}
 		return bestEnemyLoc;
@@ -74,16 +79,21 @@ public class Landscaper extends Unit {
     	// On wall means on a tile adjacent to the wall. No other way around it I think. Greedy approach is the most reliable in decentralized algorithms.
     	MapLocation loc = rc.getLocation();
     	
-    	// Early defending and terraforming terraforming
-		if (rc.getRoundNum() < 300) {
-			attackTarget = senseHighestPriorityNearbyEnemyBuilding();
-			if (senseHighestPriorityNearbyEnemyBuilding() != null) {
-				mode = LandscaperMode.ATTACK;
-			}
-			else if (rc.getRoundNum() < 300 && !beingRushed) {
-	    		latticeElevation = Math.max(hqElevation + 3, 3);
-	    		mode = LandscaperMode.EARLY_TERRAFORM;
-	    	}
+
+    	attackTarget = senseHighestPriorityNearbyEnemyBuilding(loc.isAdjacentTo(hqLocation));
+    	// Fucking rushed.
+    	if (beingRushed) {
+			mode = LandscaperMode.EARLY_RUSH;
+		}
+    	// Early Terraforming
+    	else if (rc.getRoundNum() < 300) {
+    		if (attackTarget != null) {
+    			mode = LandscaperMode.ATTACK;
+    		}
+    		else {
+    			latticeElevation = Math.max(hqElevation + 3, 3);
+        		mode = LandscaperMode.EARLY_TERRAFORM;
+    		}
     	}
 		// On wall
     	else if (loc.isAdjacentTo(hqLocation))
@@ -91,8 +101,8 @@ public class Landscaper extends Unit {
     		mode = LandscaperMode.ON_WALL;
     	}
     	else{
-    		attackTarget = senseHighestPriorityNearbyEnemyBuilding();
-    		if (senseHighestPriorityNearbyEnemyBuilding() != null) {
+    		attackTarget = senseHighestPriorityNearbyEnemyBuilding(false);
+    		if (attackTarget != null) {
     			mode = LandscaperMode.ATTACK;
         	}
     		else if (!wallComplete && rc.getRoundNum() <= wallCutoffRound) {
@@ -102,7 +112,7 @@ public class Landscaper extends Unit {
 	    		mode = LandscaperMode.TERRAFORM;
 	    	}
     	}
-    	
+
     	// Sense nearby enemies.
     	switch (mode) {
     	case EARLY_TERRAFORM:
@@ -121,7 +131,8 @@ public class Landscaper extends Unit {
 			terraform(false);
 			break;
 		case EARLY_RUSH:
-			rush();
+			rushDefense(attackTarget);
+			break;
 		default:
 			break;
     		
@@ -420,8 +431,42 @@ public class Landscaper extends Unit {
 	}
 
 	
-	static public void rushDefense() {
-		
+	static public void rushDefense(MapLocation attackTarget) throws GameActionException {
+		MapLocation loc = rc.getLocation();
+		rc.setIndicatorDot(loc, 0,0,0);
+		if (rc.canSenseLocation(hqLocation)) {
+			RobotInfo hqInfo = rc.senseRobotAtLocation(hqLocation);
+			if ( loc.isAdjacentTo(hqLocation) ) {
+				if ( hqInfo.getDirtCarrying() > 0 && rc.getDirtCarrying() < RobotType.LANDSCAPER.dirtLimit ) {
+					tryDig(loc.directionTo(hqLocation));
+				} else if ( rc.getDirtCarrying() == RobotType.LANDSCAPER.dirtLimit ) {
+					if (attackTarget != null && loc.isAdjacentTo(attackTarget)) {
+						tryDeposit(loc.directionTo(attackTarget));
+					} else {
+						tryDeposit(Direction.CENTER);
+					}
+				} else { // no threat to hq
+					if (attackTarget != null && loc.isAdjacentTo(attackTarget)) {
+						attack(attackTarget);
+					}
+				}
+			} else {
+				if ( hqInfo != null && hqInfo.getDirtCarrying() > 30 ) {
+					rc.setIndicatorLine(loc, hqLocation, 255, 0, 0);
+					path.simpleTargetMovement(hqLocation);
+				} else if ( attackTarget != null ){
+					attack(attackTarget);
+				} else {
+					path.simpleTargetMovement(hqLocation);
+				}
+			}
+		} else {
+			if (attackTarget != null) {
+				attack(attackTarget);
+			} else {
+				path.simpleTargetMovement(hqLocation);
+			}
+		}
 	}
 	
 	// Move towards and kill that bitch?
@@ -451,10 +496,13 @@ public class Landscaper extends Unit {
 		if (rc.getDirtCarrying() == 0) {
 			// Find a non-Lattice tile that is not the HQ and try to dig there.
 			for (Direction dir : directions) {
-				if (!attackTarget.equals(rc.getLocation().add(dir))
-						&& !hqLocation.equals(rc.getLocation().add(dir))
+				if (!attackTarget.equals(loc.add(dir))
+						&& !hqLocation.equals(loc.add(dir))
 						&& !onLatticeTiles(loc.add(dir))) {
-					if (tryDig(dir)) break;
+					if (tryDig(dir)) {
+						rc.setIndicatorLine(loc, loc.add(dir), 0, 128, 0);
+						break;
+					}
 				}
 			}
 		}

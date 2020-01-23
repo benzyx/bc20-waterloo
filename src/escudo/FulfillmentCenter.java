@@ -27,7 +27,7 @@ public class FulfillmentCenter extends Unit {
 	public void rushDefense() throws GameActionException{
 		RobotInfo[] robots = rc.senseNearbyRobots();
 		MapLocation loc = rc.getLocation();
-		if (rc.getTeamSoup() >= RobotType.DELIVERY_DRONE.cost && Math.random() < 0.5) {
+		if (rc.getTeamSoup() >= RobotType.DELIVERY_DRONE.cost && (dronesSpawned == 0 || Math.random() < 0.5)) {
 			for (Direction dir : directions) {
 				if (safeToBuild(robots, loc.add(dir)) && tryBuild(RobotType.DELIVERY_DRONE, dir)) {
 					dronesBuilt++;
