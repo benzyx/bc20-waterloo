@@ -16,6 +16,7 @@ class TransactionLogic {
 		UNIT_SPAWNED,
 		WALL_STATUS,
 		WALL_COMPLETE,
+		RUSH_DEFEATED,
 		RUSH_DETECTED,
 		SOUP_LOCATION,
 	}
@@ -100,6 +101,19 @@ class TransactionLogic {
     	Unit.beingRushed = true;
 		Unit.rushTargetLocation = location;
     }
+
+	void sendRushDefeatedMessage(RobotInfo robot, int cost) throws GameActionException {
+		MapLocation loc = robot.getLocation();
+		int[] message = {1, MessageType.RUSH_DEFEATED.ordinal(), 0, robotTypeToNum(robot.getType()), 0, loc.x, loc.y};
+		rc.submitTransaction(applyXORtoMessage(message, cost, rc.getRoundNum()), cost);
+	}
+
+	static void readRushDefeatedMessage(int[] message) {
+		// Friendly HQ.
+		MapLocation location = new MapLocation(message[5], message[6]);
+		Unit.beingRushed = false;
+		Unit.rushTargetLocation = location;
+	}
     
     
     /**
@@ -197,7 +211,8 @@ class TransactionLogic {
     		return;
     	}
     	if (message[1] == MessageType.LOCATION.ordinal()) readLocationMessage(message);
-    	if (message[1] == MessageType.RUSH_DETECTED.ordinal()) readRushDetectedMessage(message);
+		if (message[1] == MessageType.RUSH_DEFEATED.ordinal()) readRushDefeatedMessage(message);
+		if (message[1] == MessageType.RUSH_DETECTED.ordinal()) readRushDetectedMessage(message);
     	if (message[1] == MessageType.UNIT_SPAWNED.ordinal()) readSpawnMessage(message);
     	if (message[1] == MessageType.SOUP_LOCATION.ordinal()) readSoupLocationMessage(message);
     	if (message[1] == MessageType.WALL_COMPLETE.ordinal()) readWallCompleteMessage(message);

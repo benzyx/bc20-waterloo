@@ -22,19 +22,49 @@ public class DesignSchool extends Unit {
 			}
 		}
 	}
+
+	public void rushDefense() throws GameActionException {
+		int enemyLandscaperCount = 0;
+		int allyLandscaperCount = 0;
+		RobotInfo[] robots = rc.senseNearbyRobots(-1);
+		Team myTeam = rc.getTeam();
+		for (RobotInfo robot : robots) {
+			// If found enemy HQ...
+			if (robot.getType() == RobotType.LANDSCAPER) {
+				if (robot.getTeam() != myTeam) {
+					++enemyLandscaperCount;
+				} else {
+					++allyLandscaperCount;
+				}
+			}
+		}
+		int minDist = 10000;
+		Direction dirToHQ = Direction.NORTH;
+		for (Direction dir : directions) {
+			int distToEnemyHQ = rc.getLocation().add(dir).distanceSquaredTo(hqLocation);
+			if (rc.canBuildRobot(RobotType.LANDSCAPER, dir) && distToEnemyHQ <= minDist) {
+				minDist = distToEnemyHQ;
+				dirToHQ = dir;
+			}
+		}
+		if (minDist < 10000 && tryBuild(RobotType.LANDSCAPER, dirToHQ)) {
+			landscapersBuilt++;
+		}
+	}
 	
 	@Override
 	public void run() throws GameActionException {
 		txn.updateToLatestBlock();
 		
-		if (rc.getRoundNum() > 350) beingRushed = false;
+		// if (rc.getRoundNum() > 350) beingRushed = false;
 		
 		
 		// Being rushed!
 		if (beingRushed) {
-			if (rc.getRoundNum() < 500 && rc.getTeamSoup() >= RobotType.LANDSCAPER.cost && Math.random() < 0.5) {
-				smartBuild();
-			}
+//			if (rc.getRoundNum() < 500 && rc.getTeamSoup() >= RobotType.LANDSCAPER.cost && Math.random() < 0.5) {
+//				smartBuild();
+//			}
+			rushDefense();
 		}
 		
 		// Not being rushed!

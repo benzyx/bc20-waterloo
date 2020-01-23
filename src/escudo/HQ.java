@@ -23,13 +23,40 @@ public class HQ extends Unit {
     	if (rc.getTeamSoup() > 0) txn.sendLocationMessage(rc.senseRobotAtLocation(hqLocation), hqLocation, Math.min(11, rc.getTeamSoup()));
 	}
 
+	public void rushDefense() throws GameActionException{
+		RobotInfo[] robots = rc.senseNearbyRobots();
+		int enemyRobotCount = 0;
+		Team ourTeam = rc.getTeam();
+		for (RobotInfo robot : robots) {
+			if (robot.getTeam() != ourTeam) {
+				++enemyRobotCount;
+				// Shoot down enemies that appear.
+				if (rc.canShootUnit(robot.getID())) {
+					rc.shootUnit(robot.getID());
+				}
+			}
+		}
+
+		// Detect rushes.
+		if (enemyRobotCount == 0 || enemyRobotCount <= 4 && rc.getRoundNum() > 300) {
+			beingRushed = false;
+			int bid = Math.min(11, rc.getTeamSoup());
+			if (bid > 0) {
+				txn.sendRushDefeatedMessage(rc.senseRobotAtLocation(rc.getLocation()), bid);
+			}
+		}
+	}
+
 	@Override
 	public void run() throws GameActionException {
 		txn.updateToLatestBlock();
 		
 		MapLocation loc = rc.getLocation();
 
-		if (rc.getRoundNum() > 400) beingRushed = false;
+		if ( beingRushed ) {
+			rushDefense();
+			return;
+		}
 
 		// Produce Miners
         // Otherwise, start trying to build miners if we have too much soup.
@@ -89,8 +116,9 @@ public class HQ extends Unit {
     		// Detect rushes.
     		if (!beingRushed && robot.getTeam() == rc.getTeam().opponent()) {
     			if (rc.getRoundNum() < 300 && robot.getType() == RobotType.MINER || robot.getType() == RobotType.LANDSCAPER || robot.getType().isBuilding()) {
-    				if (rc.getSoupCarrying() > 0) {
-    					txn.sendRushDetectedMessage(robot, Math.min(11, rc.getSoupCarrying()));
+    				int bid = Math.min(11, rc.getTeamSoup());
+    				if (bid > 0) {
+    					txn.sendRushDetectedMessage(robot, bid);
     					beingRushed = true;
     				}
     			}

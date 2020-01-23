@@ -6,7 +6,7 @@ public class Landscaper extends Unit {
 
 	static int latticeElevation = 6;
 
-	static final int wallCutoffRound = 420;
+	static final int wallCutoffRound = 300;
 
     enum LandscaperMode{
     	FIND_WALL,
@@ -87,11 +87,12 @@ public class Landscaper extends Unit {
     		if (senseHighestPriorityNearbyEnemyBuilding() != null) {
     			mode = LandscaperMode.ATTACK;
 	    	}
-	    	else if (!wallComplete && rc.getRoundNum() <= wallCutoffRound) {
-	    		mode = LandscaperMode.FIND_WALL;
+	    	else if (wallComplete) {
+				mode = LandscaperMode.TERRAFORM;
 	    	}
 	    	else {
-	    		mode = LandscaperMode.TERRAFORM;
+				rc.setIndicatorDot(rc.getLocation(), 0, 0,0 );
+				mode = LandscaperMode.FIND_WALL;
 	    	}
     	}
     	

@@ -160,7 +160,53 @@ public class Miner extends Unit {
 		}
 		return false;
 	}
-    
+
+	static MapLocation antiAggroBuild(RobotType robotType) throws GameActionException{
+		Direction targetDir = rc.getLocation().directionTo(hqLocation);
+		if (hqLocation.isAdjacentTo(rc.getLocation().add(targetDir).add(targetDir))) {
+			if (tryBuild(robotType, targetDir)) {
+				incrementBuildCounters(robotType);
+				return rc.getLocation().add(targetDir);
+			}
+		}
+
+
+		for (Direction dir : directions) {
+			// Do not build anything adjacent to our HQ.
+			MapLocation potentialBuildLocation = rc.getLocation().add(dir);
+			if (potentialBuildLocation.isAdjacentTo(hqLocation)) {
+				continue;
+			}
+			if (tryBuild(robotType, dir)) {
+				incrementBuildCounters(robotType);
+				return potentialBuildLocation;
+			}
+		}
+		return null;
+	}
+
+	static void rushDefense() throws GameActionException {
+		MapLocation loc = rc.getLocation();
+		boolean inCombatZone = rc.canSenseLocation(hqLocation);
+		Team ourTeam = rc.getTeam();
+		int localDesignSchoolCount = 0;
+
+		RobotInfo[] robots = rc.senseNearbyRobots();
+		for (RobotInfo robot : robots) {
+			if ( robot.getTeam() == ourTeam ) {
+				if ( robot.getType() == RobotType.DESIGN_SCHOOL ) {
+					++localDesignSchoolCount;
+				}
+			} else {
+
+			}
+		}
+		if (designSchoolsBuilt < 1 && rc.getTeamSoup() >= RobotType.DESIGN_SCHOOL.cost) {
+			antiAggroBuild(RobotType.DESIGN_SCHOOL);
+		}
+		path.simpleTargetMovement(hqLocation);
+	}
+
     static int lateFullfillmentCenter = 0;
     static int lateDesignSchool = 0;
     static void primaryBuilder() throws GameActionException {
@@ -171,21 +217,9 @@ public class Miner extends Unit {
 		}
 		
 		// Handle Rushing by building a fucking fast 
-		if (beingRushed && rc.getRoundNum() < 500) {
+		if (beingRushed) {
 			// Build a design school asap.
-			if (designSchoolsBuilt < 1) {
-				smartBuild(RobotType.DESIGN_SCHOOL, true);
-			}
-			if (fulfillmentCentersBuilt < 1) {
-				smartBuild(RobotType.FULFILLMENT_CENTER, true);
-			}
-			// Build a design school asap.
-			if (designSchoolsBuilt < 2 && rc.getRoundNum() > 250) {
-				smartBuild(RobotType.DESIGN_SCHOOL, true);
-			}
-			if (fulfillmentCentersBuilt < 2 && rc.getRoundNum() > 250) {
-				smartBuild(RobotType.FULFILLMENT_CENTER, true);
-			}
+			rushDefense();
 		}
 
         if (buildingOrderIndex < buildingOrder.length && buildingOrder[buildingOrderIndex].cost < rc.getTeamSoup()) {
