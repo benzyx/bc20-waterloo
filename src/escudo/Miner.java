@@ -288,6 +288,15 @@ public class Miner extends Unit {
     }
 
     static void senseNearbyRefineries() throws GameActionException {
+    	
+    	// update lastRefineryLocation if dead.
+    	if (lastRefineryLocation != null && rc.canSenseLocation(lastRefineryLocation)) {
+    		RobotInfo robot = rc.senseRobotAtLocation(lastRefineryLocation);
+    		if (robot == null || robot.getType() != RobotType.REFINERY || robot.getTeam() != rc.getTeam()) {
+    			lastRefineryLocation = null;
+    		}
+    	}
+
     	// Sense Nearby Refineries
     	RobotInfo[] robots = rc.senseNearbyRobots();
     	for (RobotInfo robot : robots) {
