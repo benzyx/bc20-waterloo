@@ -125,7 +125,7 @@ public class Landscaper extends Unit {
     		onWall();
     		break;
 		case ATTACK:
-			attack(attackTarget, false);
+			attack(attackTarget, true);
 			break;
 		case TERRAFORM:
 			terraform(false);
