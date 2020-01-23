@@ -47,7 +47,9 @@ public class DesignSchool extends Unit {
 				dirToHQ = dir;
 			}
 		}
-		if (minDist < 10000 && tryBuild(RobotType.LANDSCAPER, dirToHQ)) {
+		if (minDist < 10000 && allyLandscaperCount < 4 && tryBuild(RobotType.LANDSCAPER, dirToHQ)) {
+			landscapersBuilt++;
+		} else if (minDist < 10000 && Math.random() < 0.2 && tryBuild(RobotType.LANDSCAPER, dirToHQ)) {
 			landscapersBuilt++;
 		}
 	}
