@@ -1,4 +1,4 @@
-package escudo;
+package dumbrushbot;
 
 import battlecode.common.*;
 
@@ -6,8 +6,9 @@ public class Landscaper extends Unit {
 
 	static int latticeElevation = 6;
 
+	static final int wallCutoffRound = 420;
+
     enum LandscaperMode{
-    	EARLY_TERRAFORM,
     	FIND_WALL,
     	ON_WALL,
     	TERRAFORM,
@@ -26,18 +27,18 @@ public class Landscaper extends Unit {
     
 	public Landscaper(RobotController _rc) throws GameActionException {
 		super(_rc);
+    	mode = LandscaperMode.FIND_WALL;
     	spawnLocation = rc.getLocation();
-    	txn.sendSpawnMessage(RobotType.LANDSCAPER, 1);
 	}
 	
 	public int priorityOfEnemyBuilding(RobotType type) {
 		switch(type) {
+		case HQ:
+			return 12;
 		case DESIGN_SCHOOL:
 			return 10;
 		case NET_GUN:
 			return 9;
-		case HQ:
-			return 8;
 		default:
 			return 1;
 		}
@@ -67,27 +68,26 @@ public class Landscaper extends Unit {
 	public void run() throws GameActionException {    
     	txn.updateToLatestBlock();
     	
-    	while (latticeElevation < 30 && roundFlooded(latticeElevation) < rc.getRoundNum() + 350) {
+    	if (rc.getRoundNum() > 900) {
+    		latticeElevation = 9;
+    	}
+    	if (roundFlooded(latticeElevation) < rc.getRoundNum() + 250) {
     		latticeElevation++;
     	}
 
     	// On wall means on a tile adjacent to the wall. No other way around it I think. Greedy approach is the most reliable in decentralized algorithms.
     	MapLocation loc = rc.getLocation();
     	
-    	attackTarget = senseHighestPriorityNearbyEnemyBuilding();
-		if (senseHighestPriorityNearbyEnemyBuilding() != null) {
-			mode = LandscaperMode.ATTACK;
-    	}
-		else if (rc.getRoundNum() < 300 && !beingRushed) {
-    		latticeElevation = hqElevation + 3;
-    		mode = LandscaperMode.EARLY_TERRAFORM;
-    	}
-    	else if (loc.isAdjacentTo(hqLocation))
+    	if (loc.isAdjacentTo(hqLocation))
     	{
     		mode = LandscaperMode.ON_WALL;
     	}
     	else{
-    		if (!wallComplete && rc.getRoundNum() <= wallCutoffRound) {
+    		attackTarget = senseHighestPriorityNearbyEnemyBuilding();
+    		if (senseHighestPriorityNearbyEnemyBuilding() != null) {
+    			mode = LandscaperMode.ATTACK;
+	    	}
+	    	else if (!wallComplete && rc.getRoundNum() <= wallCutoffRound) {
 	    		mode = LandscaperMode.FIND_WALL;
 	    	}
 	    	else {
@@ -97,9 +97,6 @@ public class Landscaper extends Unit {
     	
     	// Sense nearby enemies.
     	switch (mode) {
-    	case EARLY_TERRAFORM:
-    		terraform(true);
-    		break;
     	case FIND_WALL:
     		findWall();
     		break;
@@ -110,7 +107,7 @@ public class Landscaper extends Unit {
 			attack(attackTarget);
 			break;
 		case TERRAFORM:
-			terraform(false);
+			terraform();
 			break;
 		case EARLY_RUSH:
 			rush();
@@ -225,7 +222,7 @@ public class Landscaper extends Unit {
 		
 		// EMERGENCY! Heal the HQ if it's about to die!
 		RobotInfo hqInfo = rc.senseRobotAtLocation(hqLocation);
-		if (hqInfo != null && rc.getDirtCarrying() < RobotType.LANDSCAPER.dirtLimit && hqInfo.getDirtCarrying() > 40) {
+		if (rc.getDirtCarrying() < RobotType.LANDSCAPER.dirtLimit && hqInfo != null && hqInfo.getDirtCarrying() > 40) {
 			rc.setIndicatorLine(loc, hqLocation, 255, 0, 0);
 			tryDig(loc.directionTo(hqLocation));
 		}
@@ -284,7 +281,7 @@ public class Landscaper extends Unit {
 		// No dirt, need to dig.
 		else{
 			// Heal the HQ if it's not at full health.
-			if (hqInfo != null && hqInfo.getDirtCarrying() > 0) {
+			if (hqInfo.getDirtCarrying() > 0) {
 				rc.setIndicatorLine(loc, hqLocation, 255, 0, 0);
 				tryDig(loc.directionTo(hqLocation));
 			}
@@ -313,7 +310,7 @@ public class Landscaper extends Unit {
 		}
 	}
 	
-	static MapLocation findTerraformTarget(boolean aroundHQ) throws GameActionException {
+	static MapLocation findTerraformTarget() throws GameActionException {
 		MapLocation bestSpot = null;
 		// minimize priority
 		int bestPriority = 9999999;
@@ -325,7 +322,6 @@ public class Landscaper extends Unit {
 				// only care about locations we can sense
 				if (!rc.canSenseLocation(potentialFillSpot)) continue;
 				if (!onLatticeTiles(potentialFillSpot)) continue;
-				if (path.isPastStuckTarget(potentialFillSpot)) continue;
 
 				// Check if the elevation is below what we need.
 				int elevation = rc.senseElevation(potentialFillSpot);
@@ -338,12 +334,7 @@ public class Landscaper extends Unit {
 				// Fill in the closest square to HQ that needs it.
 				int priority = rc.getLocation().distanceSquaredTo(potentialFillSpot);
 				
-				// If we're filling around the HQ, then we want to find the closest points around HQ that we can sense to fill.
-				if (aroundHQ) {
-					priority = hqLocation.distanceSquaredTo(potentialFillSpot);
-				}
-
-				// Get the best priority.
+				// Actually fill in the closest one to us, tiebroken by distance to HQ.
 				if (bestPriority > priority) {
 					bestPriority = priority;
 					bestSpot = potentialFillSpot;
@@ -355,10 +346,11 @@ public class Landscaper extends Unit {
 	
 	
 	static void terrformTowards() throws GameActionException {
+		
 	}
 
 	// Terraform: build lattice while roaming
-	static void terraform(boolean aroundHQ) throws GameActionException {
+	static void terraform() throws GameActionException {
 
 		MapLocation loc = rc.getLocation();
 		
@@ -371,41 +363,34 @@ public class Landscaper extends Unit {
 				}
 			}
 			// Else, move.
-			path.simpleTargetMovementCWOnly(true);
+			path.simpleTargetMovement(true);
 		}
 		// Has max dirt capacity - start depositing dirt.
 		else {
 			
-			if (path.isStuck()) {
-				System.out.println("I am stuck!");
-				path.resetTarget();
-			}
-			
 			// Make sure we have a terraform target.
 			if (terraformTarget == null) {
-				terraformTarget = findTerraformTarget(aroundHQ);
+				terraformTarget = findTerraformTarget();
 			}
-			
 
 			if (terraformTarget != null) {
 				rc.setIndicatorLine(rc.getLocation(), terraformTarget, 192, 192, 0);
 				// Check if the target is done.
 				if (rc.canSenseLocation(terraformTarget) && rc.senseElevation(terraformTarget) >= latticeElevation) {
-					terraformTarget = findTerraformTarget(aroundHQ);
+					terraformTarget = findTerraformTarget();
 				}
 				navigateToDeposit(terraformTarget, true);
 			}
 			else {
 				if (enemyHQLocation != null) {
-					path.simpleTargetMovementCWOnly(enemyHQLocation);
+					path.simpleTargetMovement(enemyHQLocation);
 				}
 				else {
-					path.simpleTargetMovementCWOnly();
+					path.simpleTargetMovement();
 				}
 			}
 		}
 	}
-
 	
 	static public void rushDefense() {
 		
@@ -437,9 +422,20 @@ public class Landscaper extends Unit {
 
 		if (rc.getDirtCarrying() == 0) {
 			// Find a non-Lattice tile that is not the HQ and try to dig there.
-			for (Direction dir : directions) {
-				if (!hqLocation.equals(rc.getLocation().add(dir)) && !onLatticeTiles(loc.add(dir))) {
-					if (tryDig(dir)) break;
+			RobotInfo[] robots = rc.senseNearbyRobots(-1, rc.getTeam());
+			boolean foundBuildingInDanger = false;
+			for (RobotInfo robot : robots) {
+				if (robot.getType().isBuilding() && robot.getLocation().isAdjacentTo(loc) && robot.getDirtCarrying() > 0) {
+					rc.setIndicatorLine(loc, hqLocation, 0, 255, 0);
+					tryDig(loc.directionTo(robot.getLocation()));
+					foundBuildingInDanger = true;
+				}
+			}
+			if (!foundBuildingInDanger) {
+				for (Direction dir : directions) {
+					if (!hqLocation.equals(rc.getLocation().add(dir)) && !onLatticeTiles(loc.add(dir))) {
+						if (tryDig(dir)) break;
+					}
 				}
 			}
 		}
@@ -455,12 +451,12 @@ public class Landscaper extends Unit {
 	}
 	
 	static public void navigateToDeposit(MapLocation dest, boolean latticeOnly) throws GameActionException {
-		if (dest != null && rc.getLocation().isAdjacentTo(dest)) {
+		if (rc.getLocation().isAdjacentTo(dest)) {
 			// If adjacent, deposit should not fail unless not available for move.
 			tryDeposit(rc.getLocation().directionTo(dest));
 		}
 		else {
-			path.simpleTargetMovementCWOnly(dest, latticeOnly);
+			path.simpleTargetMovement(dest, latticeOnly);
 		}
 	}
 	

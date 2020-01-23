@@ -1,4 +1,4 @@
-package escudo;
+package dumbrushbot;
 import battlecode.common.*;
 public strictfp class RobotPlayer {
 
@@ -33,9 +33,8 @@ public strictfp class RobotPlayer {
         }
 
         while (true) {
-        	MapLocation loc = rc.getLocation();
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
-            // try {
+            try {
                 // Here, we've separated the controls into a different method for each RobotType.
                 // You can add the missing ones or rewrite this into your own control structure.
                 unit.run();
@@ -43,11 +42,10 @@ public strictfp class RobotPlayer {
                 // Clock.yield() makes the robot wait until the next turn, then it will perform this loop again
                 Clock.yield();
 
-//            } catch (Exception e) {
-//            	rc.setIndicatorDot(loc, 255, 0, 0);
-//                System.out.println(rc.getType() + " Exception");
-//                e.printStackTrace();
-//            }
+            } catch (Exception e) {
+                System.out.println(rc.getType() + " Exception");
+                e.printStackTrace();
+            }
         }
     }
 }

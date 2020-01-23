@@ -6,8 +6,9 @@ public class FulfillmentCenter extends Unit {
 	
 	static int dronesBuilt = 0;
 	
-	public FulfillmentCenter(RobotController _rc) {
+	public FulfillmentCenter(RobotController _rc) throws GameActionException {
 		super(_rc);
+		txn.sendSpawnMessage(RobotType.FULFILLMENT_CENTER, 2);
 	}
 	
 	
@@ -29,25 +30,37 @@ public class FulfillmentCenter extends Unit {
 		RobotInfo[] robots = rc.senseNearbyRobots();
 		MapLocation loc = rc.getLocation();
 		
-		if (beingRushed && rc.getRoundNum() < 500 && rc.getTeamSoup() >= RobotType.DELIVERY_DRONE.cost && Math.random() < 0.5) {
-			for (Direction dir : directions) {
-    			if (safeToBuild(robots, loc.add(dir)) && tryBuild(RobotType.DELIVERY_DRONE, dir)) {
-    				dronesBuilt++;
-    				break;
-    			}
-    		}
+		if (rc.getRoundNum() > 350) beingRushed = false;
+
+		if (beingRushed) {
+			if (rc.getRoundNum() < 500 && rc.getTeamSoup() >= RobotType.DELIVERY_DRONE.cost && Math.random() < 0.5) {
+				for (Direction dir : directions) {
+	    			if (safeToBuild(robots, loc.add(dir)) && tryBuild(RobotType.DELIVERY_DRONE, dir)) {
+	    				dronesBuilt++;
+	    				break;
+	    			}
+	    		}
+			}
 		}
-		
-        if ((dronesBuilt < 15 && rc.getTeamSoup() > 300 && Math.random() < 0.5) ||
-            (dronesBuilt >= 15 && rc.getTeamSoup() > 600 && Math.random() < 0.3) ||
-            (rc.getRoundNum() > 1250 && rc.getTeamSoup() >= RobotType.DELIVERY_DRONE.cost)){
-        	for (Direction dir : directions) {
-        		if (safeToBuild(robots, loc.add(dir)) && tryBuild(RobotType.DELIVERY_DRONE, dir)) {
-        			dronesBuilt++;
-        			break;
-        		}
-        	}
-        }
+		else {
+	        if ((rc.getTeamSoup() > 800) ||
+	        		(rc.getRoundNum() > 1000 && rc.getTeamSoup() >= RobotType.DELIVERY_DRONE.cost) ||
+	        		(rc.getTeamSoup() > 300
+	        				&& rc.getTeamSoup() > RobotType.DELIVERY_DRONE.cost 
+	        				&& landscapersSpawned >= 1.5 * dronesSpawned
+	        				&& 2 * vaporatorsSpawned >= dronesSpawned) ||
+	        		(rc.getTeamSoup() > 530
+	        				&& rc.getTeamSoup() > RobotType.DELIVERY_DRONE.cost
+	        				&& landscapersSpawned >= 1.5 * dronesSpawned)){
+	            	for (Direction dir : directions) {
+	            		if (safeToBuild(robots, loc.add(dir)) && tryBuild(RobotType.DELIVERY_DRONE, dir)) {
+	            			dronesBuilt++;
+	            			break;
+	            		}
+	            	}
+	            }	
+		}
+
 	}
 
 }

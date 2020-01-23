@@ -20,7 +20,7 @@ public class HQ extends Unit {
     	hqLocation = rc.getLocation();
     	
     	// Broadcast our current location
-    	txn.sendLocationMessage(rc.senseRobotAtLocation(hqLocation), hqLocation, 11);
+    	if (rc.getTeamSoup() > 0) txn.sendLocationMessage(rc.senseRobotAtLocation(hqLocation), hqLocation, Math.min(11, rc.getTeamSoup()));
 	}
 
 	@Override
@@ -29,11 +29,13 @@ public class HQ extends Unit {
 		
 		MapLocation loc = rc.getLocation();
 
+		if (rc.getRoundNum() > 400) beingRushed = false;
+
 		// Produce Miners
         // Otherwise, start trying to build miners if we have too much soup.
         if (minersProduced < initialMinersCount ||
-        	!beingRushed && minersProduced < 7 && rc.getTeamSoup() > 100 ||
-        	!beingRushed && minersProduced < totalMinersNeeded && rc.getTeamSoup() > 300 && Math.random() < 0.5 ||
+        	!beingRushed && minersProduced < 7 && rc.getTeamSoup() > 70 ||
+        	!beingRushed && minersProduced < totalMinersNeeded && rc.getTeamSoup() > 400 && Math.random() < 0.1 ||
         	rc.getRoundNum() > 450 && rc.getTeamSoup() > 600) {
         	for (Direction dir : directions) {
                 if (tryBuild(RobotType.MINER, dir)) {
@@ -64,6 +66,17 @@ public class HQ extends Unit {
             	txn.sendSoupLocationMessage(soupLoc, 1);
             }
         }
+        
+        boolean tempWallComplete = true;
+        for (Direction dir : directions) {
+        	if (!rc.onTheMap(loc.add(dir))) continue;
+        	RobotInfo robot = rc.senseRobotAtLocation(loc.add(dir));
+        	if (robot == null || robot.getTeam() != rc.getTeam() || robot.getType() != RobotType.LANDSCAPER) tempWallComplete = false;	
+        }
+        if (!wallComplete && tempWallComplete) {
+        	wallComplete = true;
+        	txn.sendWallCompleteMessage(2);
+        }
 
         RobotInfo[] robots = rc.senseNearbyRobots();
     	for (RobotInfo robot : robots) {
@@ -76,8 +89,10 @@ public class HQ extends Unit {
     		// Detect rushes.
     		if (!beingRushed && robot.getTeam() == rc.getTeam().opponent()) {
     			if (rc.getRoundNum() < 300 && robot.getType() == RobotType.MINER || robot.getType() == RobotType.LANDSCAPER || robot.getType().isBuilding()) {
-    				beingRushed = true;
-    				txn.sendRushDetectedMessage(robot, 11);
+    				if (rc.getSoupCarrying() > 0) {
+    					txn.sendRushDetectedMessage(robot, Math.min(11, rc.getSoupCarrying()));
+    					beingRushed = true;
+    				}
     			}
     		}
     	}

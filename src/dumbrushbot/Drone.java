@@ -1,4 +1,4 @@
-package escudo;
+package dumbrushbot;
 
 import battlecode.common.*;
 
@@ -28,9 +28,9 @@ public class Drone extends Unit {
 	static public MapLocation[] netGuns = new MapLocation[50];
 	static public int netGunCount = 0;
 
-	public Drone(RobotController _rc) throws GameActionException {
+	public Drone(RobotController _rc) {
 		super(_rc);
-		if (rc.getTeamSoup() > 1) txn.sendSpawnMessage(RobotType.DELIVERY_DRONE, 1);
+		// TODO Auto-generated constructor stub
 	}
 	
 	
@@ -69,38 +69,6 @@ public class Drone extends Unit {
         return closestEnemyRobot;
 	}
 	
-	public RobotInfo senseStuckAllies() throws GameActionException {
-		MapLocation loc = rc.getLocation();
-        RobotInfo[] robots = rc.senseNearbyRobots(-1, rc.getTeam());
-        
-        
-        // Look at all the ally robots.
-        RobotInfo closestAllyRobot = null;
-        int closestDistance = 999999999;
-        for (RobotInfo robot : robots) {
-        	MapLocation robotLoc = robot.getLocation();
-        	// Get those landscapers (and maybe Miners).
-        	if ((robot.getType() == RobotType.MINER || robot.getType() == RobotType.LANDSCAPER)
-        			&& robotLoc.distanceSquaredTo(loc) < closestDistance) {
-        		
-        		// determine if the person is actually stuck.
-        		int minElevationOfNeighbors = 999999999;
-        		int neighborsSensed = 0;
-        		for (Direction dir : directions) {
-        			if (rc.canSenseLocation(robot.getLocation().add(dir))) {
-        				minElevationOfNeighbors = Math.min(minElevationOfNeighbors, rc.senseElevation(robot.getLocation().add(dir)));
-        				neighborsSensed++;
-        			}
-        		}
-        		if (neighborsSensed == 8 && minElevationOfNeighbors > rc.senseElevation(robotLoc) + 3) {
-            		closestDistance = robot.getLocation().distanceSquaredTo(loc);
-            		closestAllyRobot = robot;
-        		}
-        		
-        	}
-        }
-        return closestAllyRobot;
-	}
 	/**
 	 * Roaming: trying to find the opponent base.
 	 * @throws GameActionException 
@@ -115,32 +83,15 @@ public class Drone extends Unit {
 			else {
 				path.simpleTargetMovement(robot.getLocation());
 			}
-			
-			return;
-		}
-		
-
-		robot = senseStuckAllies();
-		if (robot != null) {
-			if (tryPickUp(robot.getID())) {
-				robotCarrying = robot;
-				path.resetTarget();
-			}
-			else {
-				rc.setIndicatorLine(rc.getLocation(), robot.getLocation(), 255, 0, 255);
-				path.simpleTargetMovement(robot.getLocation());
-			}
-			
-			return;
-		}
-
-		if (loc == null) {
-			path.simpleTargetMovement();
 		}
 		else {
-			path.simpleTargetMovement(loc);
+			if (loc == null) {
+				path.simpleTargetMovement();
+			}
+			else {
+				path.simpleTargetMovement(loc);
+			}
 		}
-		
 	}
 
 	/**
@@ -228,61 +179,6 @@ public class Drone extends Unit {
 		}
 	}
 
-	// Drop off our ally.
-	public void dropOffAlly() throws GameActionException {
-		MapLocation loc = rc.getLocation();
-		if (!wallComplete
-				&& rc.getRoundNum() > wallCutoffRound
-				&& robotCarrying.getTeam() == rc.getTeam()
-				&& robotCarrying.getType() == RobotType.LANDSCAPER) {
-			
-			// Drop at one of the neighbors of the HQ.
-			for (Direction dir : directions) {
-				if (rc.onTheMap(loc.add(dir))
-						&& !rc.senseFlooding(loc.add(dir))
-						&& rc.canSenseLocation(loc.add(dir))
-						&& rc.senseRobotAtLocation(loc.add(dir)) == null
-						&& loc.add(dir).isAdjacentTo(hqLocation)) {
-					if (tryDrop(dir)) break;
-				}
-			}
-			// If we can't even sense the HQ just move towards it.
-			if (!rc.canSenseLocation(hqLocation)) {
-				dropOffLocation = hqLocation;
-				navigateToDropOff();
-			}
-			// If we can sense the HQ, then navigate to DropOff to one of its uninhabited neighbors.
-			else {
-				for (Direction dir : directions) {
-					MapLocation potentialDropOff = hqLocation.add(dir);
-					if (rc.onTheMap(potentialDropOff)
-						&& rc.canSenseLocation(potentialDropOff) 
-						&& rc.senseRobotAtLocation(potentialDropOff) == null) {
-						dropOffLocation = potentialDropOff;
-						navigateToDropOff();
-					}
-				}
-			}
-			return;
-		}
-		
-		// Otherwise, drop off at the spot of highest elevation amongst our neighbors.
-		int highestElevation = 2;
-		Direction targetDir = null;
-		for (Direction dir : directions) {
-			if (rc.onTheMap(loc.add(dir))
-					&& !rc.senseFlooding(loc.add(dir))
-					&& rc.senseElevation(loc.add(dir)) > highestElevation
-					&& rc.senseRobotAtLocation(loc.add(dir)) == null) {
-				highestElevation = rc.senseElevation(loc.add(dir));
-				targetDir = dir;
-			}
-		}
-		if (targetDir != null) {
-			tryDrop(targetDir);
-		}
-	}
-
 	@Override
 	public void run() throws GameActionException {
 		
@@ -320,12 +216,6 @@ public class Drone extends Unit {
 
         switch(mode) {
         case ROAM:
-        	
-        	// Safely drop off our friendly dudes.
-        	if (rc.isCurrentlyHoldingUnit() && robotCarrying.getTeam() == rc.getTeam()) {
-        		dropOffAlly();
-        	}
-
         	roam(null);
         	break;
         case HOLDING_ENEMY:

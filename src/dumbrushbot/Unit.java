@@ -1,4 +1,4 @@
-package escudo;
+package dumbrushbot;
 
 import battlecode.common.*;
 
@@ -15,21 +15,9 @@ public class Unit {
     public static int enemyHQElevation;
     public static MapLocation enemyHQLocation;
     
-	static final int wallCutoffRound = 420;
     public static boolean wallComplete = false;
     public static boolean beingRushed = false;
-
     public static MapLocation rushTargetLocation;
-    
-    
-    // Macro stats on units spawned
-    
-    static int minersSpawned = 0;
-    static int dronesSpawned = 0;
-    static int landscapersSpawned = 0;
-    static int vaporatorsSpawned = 0;
-    static int fulfillmentCentersSpawned = 0;
-    static int designSchoolsSpawned = 0;
 
     static final Direction[] directions = {
             Direction.NORTH,

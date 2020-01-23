@@ -1,4 +1,4 @@
-package escudo;
+package dumbrushbot;
 
 import battlecode.common.*;
 
@@ -26,7 +26,7 @@ class TransactionLogic {
 		rc = _rc;
 	}
 
-	static int secretKey = 0x31415926;
+	static int secretKey = 0x31415121;
     
     static int robotTypeToNum(RobotType type) {
     	switch (type) {
@@ -75,14 +75,12 @@ class TransactionLogic {
     
     /** 
      * Send wall complete message.
-     * @throws GameActionException 
      */
-    void sendWallCompleteMessage(int cost) throws GameActionException {
-    	int[] message = {1, MessageType.WALL_COMPLETE.ordinal(), 0, 0, 0, 0, 0};
-    	rc.submitTransaction(applyXORtoMessage(message, cost, rc.getRoundNum()), cost);
+    static void sendWallCompleteMessage() {
+    	
     }
     static void readWallCompleteMessage() {
-    	Unit.wallComplete = true;
+    	
     }
     
     /**
@@ -113,16 +111,7 @@ class TransactionLogic {
     }
     
     static void readSpawnMessage(int[] message) throws GameActionException {
-    	RobotType type = numToRobotType(message[2]);
-    	switch (type) {
-    	case VAPORATOR: 			Unit.vaporatorsSpawned++;			break;
-    	case FULFILLMENT_CENTER:	Unit.fulfillmentCentersSpawned++; 	break;
-    	case DESIGN_SCHOOL:			Unit.designSchoolsSpawned++; 		break;
-    	case MINER:					Unit.minersSpawned++;				break;
-    	case LANDSCAPER:			Unit.landscapersSpawned++;			break;
-    	case DELIVERY_DRONE:		Unit.dronesSpawned++;				break;
-    	default: break;
-    	}
+
     }
     
     /**
@@ -177,13 +166,12 @@ class TransactionLogic {
      * @param cost
      * @throws GameActionException
      */
-    void sendSoupLocationMessage(MapLocation loc, int cost) throws GameActionException {
-    	int[] message = {1, MessageType.SOUP_LOCATION.ordinal(), 0, 0, 0, loc.x, loc.y};
-    	rc.submitTransaction(applyXORtoMessage(message, cost, rc.getRoundNum()), cost);
+    void sendSoupLocationMessage(RobotInfo robotInfo, MapLocation loc, int cost) throws GameActionException {
+    	
     }
     
     static void readSoupLocationMessage(int[] message) throws GameActionException {
-    	Miner.lastSoupTileFromComms = new MapLocation(message[5],message[6]);
+    	
     }
 
     /**
