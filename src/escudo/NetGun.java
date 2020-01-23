@@ -11,9 +11,9 @@ public class NetGun extends Unit {
 	
 	@Override
 	public void run() throws GameActionException {
-		RobotInfo[] robots = rc.senseNearbyRobots();
+		RobotInfo[] robots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
     	for (RobotInfo robot : robots) {
-    		if (robot.getTeam() != rc.getTeam() && rc.canShootUnit(robot.getID())) {
+    		if (rc.canShootUnit(robot.getID())) {
     			rc.shootUnit(robot.getID());
     		}
     	}

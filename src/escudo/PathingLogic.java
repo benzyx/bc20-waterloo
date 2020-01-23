@@ -184,7 +184,49 @@ class PathingLogic {
     		stuckCounter++;
     	}
     }
-    
+
+	/**
+	 * Move towards targetLocation but only on lattice grid tiles.
+	 *
+	 * @param onLattice
+	 * @throws GameActionException
+	 */
+	void flee(boolean onLattice, MapLocation threatLocation) throws GameActionException {
+		// Sample a point on the grid.
+		MapLocation loc = rc.getLocation();
+		boolean success = false;
+		Direction dir = threatLocation.directionTo(loc);
+		// Simple move away
+		//if (threatLocation.isAdjacentTo(loc)) {
+			success = (!onLattice || Unit.onLatticeTiles(targetLocation)) && tryMove(dir);
+		//}
+
+		int tries = 7;
+		Direction cw = dir;
+		Direction ccw = dir;
+		MapLocation candidateLoc;
+		while (tries > 0 && !success) {
+			cw = nextCWDirection(cw);
+			candidateLoc = loc.add(cw);
+			success = (!onLattice || Unit.onLatticeTiles(loc.add(cw))) && !candidateLoc.isAdjacentTo(threatLocation) && tryMove(cw);
+			tries--;
+			if (tries == 0 || success) break;
+			ccw = prevCWDirection(ccw);
+			candidateLoc = loc.add(ccw);
+			success = (!onLattice || Unit.onLatticeTiles(loc.add(ccw))) && !candidateLoc.isAdjacentTo(threatLocation) && tryMove(ccw);
+			tries--;
+		}
+
+		// We are stuck... Randomize the destination I guess.
+		// actually, just reset the memory for path
+		if (!success) {
+			// Actually. lets not reset the path memory.
+			resetPathMemory();
+			stuckCounter++;
+		}
+	}
+
+
     /// ========= Move towards CW ==============
     
     /**
