@@ -501,9 +501,24 @@ public class Landscaper extends Unit {
 						&& !onLatticeTiles(loc.add(dir))) {
 					if (tryDig(dir)) {
 						rc.setIndicatorLine(loc, loc.add(dir), 0, 128, 0);
-						break;
+						return;
 					}
 				}
+			}
+			// If none of the directions lead to a non-Lattice tile, then I must be standing on a it.
+			// Pick a random direction?
+			for (Direction dir : directions) {
+				if (!attackTarget.equals(loc.add(dir))
+						&& !hqLocation.equals(loc.add(dir))) {
+					if (tryDig(dir)) {
+						rc.setIndicatorLine(loc, loc.add(dir), 0, 128, 0);
+						return;
+					}
+				}
+			}
+			// Still no? dig underneath myself I guess.
+			if (tryDig(Direction.CENTER)) {
+				rc.setIndicatorDot(loc, 0, 128, 0);
 			}
 		}
 		else {
