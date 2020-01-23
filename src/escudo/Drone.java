@@ -42,13 +42,16 @@ public class Drone extends Unit {
 	 */
 	public RobotInfo senseEnemies() throws GameActionException {
 		MapLocation loc = rc.getLocation();
-        RobotInfo[] robots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+        RobotInfo[] robots = rc.senseNearbyRobots(-1);
         
         
         // Look at all the enemy robots.
         RobotInfo closestEnemyRobot = null;
         int closestDistance = 999999999;
         for (RobotInfo robot : robots) {
+        	
+        	if (rc.getTeam() == robot.getTeam()) continue;
+
         	// If found enemy HQ...
         	if (robot.getType() == RobotType.HQ && enemyHQLocation == null) {
         		enemyHQLocation = robot.getLocation();
@@ -60,7 +63,11 @@ public class Drone extends Unit {
         		closestDistance = robot.getLocation().distanceSquaredTo(loc);
         		closestEnemyRobot = robot;
         	}
-        	else if (robot.getType() == RobotType.MINER && robot.getLocation().distanceSquaredTo(loc) * 3 < closestDistance) {
+        	else if (robot.getType() == RobotType.MINER && robot.getLocation().distanceSquaredTo(loc) < closestDistance) {
+        		closestDistance = robot.getLocation().distanceSquaredTo(loc);
+        		closestEnemyRobot = robot;
+        	}
+        	else if (robot.getType() == RobotType.COW && robot.getLocation().distanceSquaredTo(loc) * 5 < closestDistance) {
         		closestDistance = robot.getLocation().distanceSquaredTo(loc);
         		closestEnemyRobot = robot;
         	}
@@ -138,6 +145,11 @@ public class Drone extends Unit {
 	 */
 	public void roam(MapLocation loc) throws GameActionException {
 		
+		if (PathingLogic.targetLocation != null && PathingLogic.targetLocation.equals(hqLocation)) {
+			rc.setIndicatorDot(hqLocation, 128, 128, 128);
+			path.resetTarget();
+		}
+
 		if (!rc.isCurrentlyHoldingUnit()) {
 			RobotInfo robot = senseEnemies();
 			if (robot != null) {
@@ -344,7 +356,7 @@ public class Drone extends Unit {
 			path.resetTarget();
 		}
 		
-		if (rc.isCurrentlyHoldingUnit() && robotCarrying.getTeam() == rc.getTeam().opponent()) {
+		if (rc.isCurrentlyHoldingUnit() && robotCarrying.getTeam() != rc.getTeam()) {
 			mode = DroneMode.HOLDING_ENEMY;
 		}
 		// Rush defense in first 500 rounds.

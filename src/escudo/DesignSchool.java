@@ -56,7 +56,7 @@ public class DesignSchool extends Unit {
 	public void run() throws GameActionException {
 		txn.updateToLatestBlock();
 		
-		// if (rc.getRoundNum() > 350) beingRushed = false;
+		if (rc.getRoundNum() > 500) beingRushed = false;
 		
 		
 		// Being rushed!

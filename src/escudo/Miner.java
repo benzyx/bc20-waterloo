@@ -53,6 +53,19 @@ public class Miner extends Unit {
     		primaryBuilder();
     		break;
     	case SOUP_COLLECTING:
+    		
+    		// Flee to high ground.
+
+			if (roundFlooded(rc.senseElevation(rc.getLocation())) <= rc.getRoundNum() + 5) {
+				for (Direction dir : directions) {
+					if (!rc.onTheMap(rc.getLocation().add(dir))) continue;
+					if (rc.senseFlooding(rc.getLocation().add(dir))) {
+						path.tryMove(dir.opposite());
+						rc.setIndicatorLine(rc.getLocation(), rc.getLocation().add(dir.opposite()), 255, 0, 0);
+					}
+				}
+			}
+    		
     		if(!macroBuilding()){
 				soupCollecting();
 			}
@@ -236,21 +249,7 @@ public class Miner extends Unit {
             if (built != null) buildingOrderIndex++;
         }
         
-        if (buildingOrderIndex == buildingOrder.length
-        		&& rc.getTeamSoup() >= RobotType.FULFILLMENT_CENTER.cost
-        		&& fulfillmentCentersSpawned * 500 < rc.getRoundNum()) {
-        	smartBuild(RobotType.FULFILLMENT_CENTER);
-        }
-
-        if (buildingOrderIndex == buildingOrder.length
-        		&& rc.getTeamSoup() >= RobotType.DESIGN_SCHOOL.cost
-        		&& designSchoolsSpawned * 500 < rc.getRoundNum()) {
-        	smartBuild(RobotType.DESIGN_SCHOOL);
-        }
-        
-        if (buildingOrderIndex == buildingOrder.length && rc.getRoundNum() > 150 && rc.getTeamSoup() >= RobotType.VAPORATOR.cost && Math.random() > 0.5) {
-        	smartBuild(RobotType.VAPORATOR);
-        }
+        macroBuilding();
         
         // Don't stray too far from HQ!
         // Still want to stay on lattice though.
@@ -272,7 +271,17 @@ public class Miner extends Unit {
     	if (fleeDronesIfNecessary(robots)) {
 			return true;
 		}
-    	if (rc.getTeamSoup() >= 500 + 2) {
+    	
+    	if (rc.getTeamSoup() >= RobotType.FULFILLMENT_CENTER.cost
+        		&& (fulfillmentCentersSpawned+1) * 400 < rc.getRoundNum()) {
+        	smartBuild(RobotType.FULFILLMENT_CENTER);
+        }
+    	else if (rc.getTeamSoup() >= RobotType.DESIGN_SCHOOL.cost
+        		&& (designSchoolsSpawned + 1) * 400 < rc.getRoundNum()) {
+        	smartBuild(RobotType.DESIGN_SCHOOL);
+        }
+
+    	if (rc.getRoundNum() < 1200 && rc.getTeamSoup() >= 500 + 2) {
     		return smartBuild(RobotType.VAPORATOR, true) != null;
     	}
     	return false;
@@ -371,8 +380,8 @@ public class Miner extends Unit {
         	rc.setIndicatorLine(loc, soupLoc, 0, 255, 0);
         	// If we are next to the soup, we will mine it.
         	if (soupLoc.isAdjacentTo(loc)) {
-        		if (lastMinedRound + 100 < rc.getRoundNum() && lastSoupTileFromComms != null && lastSoupTileFromComms.distanceSquaredTo(soupLoc) > 75) {
-        			if (rc.getTeamSoup() > 1) txn.sendSoupLocationMessage(soupLoc, 1);
+        		if (lastMinedRound + 30 < rc.getRoundNum() && lastSoupTileFromComms != null && lastSoupTileFromComms.distanceSquaredTo(soupLoc) > 75) {
+        			if (rc.getTeamSoup() >= 1) txn.sendSoupLocationMessage(soupLoc, 1);
         		}
         		lastMinedRound = rc.getRoundNum();
         		tryMine(loc.directionTo(soupLoc));

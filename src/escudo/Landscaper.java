@@ -68,26 +68,34 @@ public class Landscaper extends Unit {
     	txn.updateToLatestBlock();
     	
     	while (latticeElevation < 30 && roundFlooded(latticeElevation) < rc.getRoundNum() + 350) {
-    		latticeElevation++;
+    		latticeElevation += 3;
     	}
 
     	// On wall means on a tile adjacent to the wall. No other way around it I think. Greedy approach is the most reliable in decentralized algorithms.
     	MapLocation loc = rc.getLocation();
     	
-    	attackTarget = senseHighestPriorityNearbyEnemyBuilding();
-		if (senseHighestPriorityNearbyEnemyBuilding() != null) {
-			mode = LandscaperMode.ATTACK;
+    	// Early defending and terraforming terraforming
+		if (rc.getRoundNum() < 300) {
+			attackTarget = senseHighestPriorityNearbyEnemyBuilding();
+			if (senseHighestPriorityNearbyEnemyBuilding() != null) {
+				mode = LandscaperMode.ATTACK;
+			}
+			else if (rc.getRoundNum() < 300 && !beingRushed) {
+	    		latticeElevation = Math.max(hqElevation + 3, 3);
+	    		mode = LandscaperMode.EARLY_TERRAFORM;
+	    	}
     	}
-		else if (rc.getRoundNum() < 300 && !beingRushed) {
-    		latticeElevation = Math.max(hqElevation + 3, 3);
-    		mode = LandscaperMode.EARLY_TERRAFORM;
-    	}
+		// On wall
     	else if (loc.isAdjacentTo(hqLocation))
     	{
     		mode = LandscaperMode.ON_WALL;
     	}
     	else{
-    		if (!wallComplete && rc.getRoundNum() <= wallCutoffRound) {
+    		attackTarget = senseHighestPriorityNearbyEnemyBuilding();
+    		if (senseHighestPriorityNearbyEnemyBuilding() != null) {
+    			mode = LandscaperMode.ATTACK;
+        	}
+    		else if (!wallComplete && rc.getRoundNum() <= wallCutoffRound) {
 	    		mode = LandscaperMode.FIND_WALL;
 	    	}
 	    	else {
@@ -393,7 +401,9 @@ public class Landscaper extends Unit {
 			if (terraformTarget != null) {
 				rc.setIndicatorLine(rc.getLocation(), terraformTarget, 192, 192, 0);
 				// Check if the target is done.
-				if (rc.canSenseLocation(terraformTarget) && rc.senseElevation(terraformTarget) >= latticeElevation) {
+				if (rc.canSenseLocation(terraformTarget) &&
+						((onLatticeIntersections(terraformTarget) && rc.senseElevation(terraformTarget) >= latticeElevation + 3)
+						|| (!onLatticeIntersections(terraformTarget) && rc.senseElevation(terraformTarget) >= latticeElevation))) {
 					terraformTarget = findTerraformTarget(aroundHQ);
 				}
 				navigateToDeposit(terraformTarget, true);

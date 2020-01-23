@@ -8,7 +8,7 @@ public class FulfillmentCenter extends Unit {
 	
 	public FulfillmentCenter(RobotController _rc) throws GameActionException {
 		super(_rc);
-		txn.sendSpawnMessage(RobotType.FULFILLMENT_CENTER, 2);
+		if (rc.getTeamSoup() > 0) txn.sendSpawnMessage(RobotType.FULFILLMENT_CENTER, 1);
 	}
 	
 	
@@ -47,7 +47,7 @@ public class FulfillmentCenter extends Unit {
 			RobotInfo[] robots = rc.senseNearbyRobots();
 			MapLocation loc = rc.getLocation();
 	        if ((rc.getTeamSoup() > 800) ||
-	        		(rc.getRoundNum() > 1000 && rc.getTeamSoup() >= RobotType.DELIVERY_DRONE.cost) ||
+	        		(rc.getRoundNum() > 1000 && rc.getTeamSoup() > 300 && landscapersSpawned >= dronesSpawned && Math.random() < 0.5) ||
 	        		(rc.getTeamSoup() > 300
 	        				&& rc.getTeamSoup() > RobotType.DELIVERY_DRONE.cost 
 	        				&& landscapersSpawned >= 2 * dronesSpawned
