@@ -441,7 +441,9 @@ public class Landscaper extends Unit {
 		if (rc.getDirtCarrying() == 0) {
 			// Find a non-Lattice tile that is not the HQ and try to dig there.
 			for (Direction dir : directions) {
-				if (!hqLocation.equals(rc.getLocation().add(dir)) && !onLatticeTiles(loc.add(dir))) {
+				if (!attackTarget.equals(rc.getLocation().add(dir))
+						&& !hqLocation.equals(rc.getLocation().add(dir))
+						&& !onLatticeTiles(loc.add(dir))) {
 					if (tryDig(dir)) break;
 				}
 			}
@@ -449,8 +451,6 @@ public class Landscaper extends Unit {
 		else {
 			navigateToDeposit(attackTarget, false);
 		}
-		
-		
 	}
 	
 	static public void rush() {

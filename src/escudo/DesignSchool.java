@@ -8,7 +8,7 @@ public class DesignSchool extends Unit {
 	
 	public DesignSchool(RobotController _rc) throws GameActionException {
 		super(_rc);
-		txn.sendSpawnMessage(RobotType.DESIGN_SCHOOL, 2);
+		if (rc.getTeamSoup() > 0) txn.sendSpawnMessage(RobotType.DESIGN_SCHOOL, Math.min(rc.getTeamSoup(), 2));
 	}
 	
 	

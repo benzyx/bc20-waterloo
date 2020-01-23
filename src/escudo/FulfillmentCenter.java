@@ -50,11 +50,11 @@ public class FulfillmentCenter extends Unit {
 	        		(rc.getRoundNum() > 1000 && rc.getTeamSoup() >= RobotType.DELIVERY_DRONE.cost) ||
 	        		(rc.getTeamSoup() > 300
 	        				&& rc.getTeamSoup() > RobotType.DELIVERY_DRONE.cost 
-	        				&& landscapersSpawned >= 1.5 * dronesSpawned
+	        				&& landscapersSpawned >= 2 * dronesSpawned
 	        				&& 2 * vaporatorsSpawned >= dronesSpawned) ||
 	        		(rc.getTeamSoup() > 530
 	        				&& rc.getTeamSoup() > RobotType.DELIVERY_DRONE.cost
-	        				&& landscapersSpawned >= 1.5 * dronesSpawned)){
+	        				&& landscapersSpawned >= 2 * dronesSpawned)){
 	            	for (Direction dir : directions) {
 	            		if (safeToBuild(robots, loc.add(dir)) && tryBuild(RobotType.DELIVERY_DRONE, dir)) {
 	            			dronesBuilt++;
