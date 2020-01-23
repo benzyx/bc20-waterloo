@@ -1,4 +1,4 @@
-package escudo;
+package antirushbot;
 
 import battlecode.common.*;
 
@@ -27,7 +27,7 @@ class TransactionLogic {
 		rc = _rc;
 	}
 
-	static int secretKey = 0x31415926;
+	static int secretKey = 0x31222922;
     
     static int robotTypeToNum(RobotType type) {
     	switch (type) {
@@ -66,7 +66,7 @@ class TransactionLogic {
     }
     
     static int[] applyXORtoMessage(int[] message, int cost, int roundNum) {
-    	int signature = (roundNum << 16) | cost;
+    	int signature = (cost << 16) | roundNum;
     	for (int i = 0; i < message.length; i++) {
     		message[i] = message[i] ^ secretKey ^ signature;
     	}
@@ -76,14 +76,12 @@ class TransactionLogic {
     
     /** 
      * Send wall complete message.
-     * @throws GameActionException 
      */
-    void sendWallCompleteMessage(int cost) throws GameActionException {
-    	int[] message = {1, MessageType.WALL_COMPLETE.ordinal(), 0, 0, 0, 0, 0};
-    	rc.submitTransaction(applyXORtoMessage(message, cost, rc.getRoundNum()), cost);
+    static void sendWallCompleteMessage() {
+    	
     }
-    static void readWallCompleteMessage(int[] message) {
-    	Unit.wallComplete = true;
+    static void readWallCompleteMessage() {
+    	
     }
     
     /**
@@ -94,19 +92,18 @@ class TransactionLogic {
     	int[] message = {1, MessageType.RUSH_DETECTED.ordinal(), 0, robotTypeToNum(robot.getType()), 0, loc.x, loc.y};
     	rc.submitTransaction(applyXORtoMessage(message, cost, rc.getRoundNum()), cost);
     }
-    
-    static void readRushDetectedMessage(int[] message) {
-    	// Friendly HQ.
-    	MapLocation location = new MapLocation(message[5], message[6]);
-    	Unit.beingRushed = true;
-		Unit.rushTargetLocation = location;
-    }
 
 	void sendRushDefeatedMessage(RobotInfo robot, int cost) throws GameActionException {
 		MapLocation loc = robot.getLocation();
-		rc.setIndicatorDot(rc.getLocation(), 0,0,0);
 		int[] message = {1, MessageType.RUSH_DEFEATED.ordinal(), 0, robotTypeToNum(robot.getType()), 0, loc.x, loc.y};
 		rc.submitTransaction(applyXORtoMessage(message, cost, rc.getRoundNum()), cost);
+	}
+    
+    static void readRushDetectedMessage(int[] message) {
+		// Friendly HQ.
+		MapLocation location = new MapLocation(message[5], message[6]);
+		Unit.beingRushed = true;
+		Unit.rushTargetLocation = location;
 	}
 
 	static void readRushDefeatedMessage(int[] message) {
@@ -115,7 +112,6 @@ class TransactionLogic {
 		Unit.beingRushed = false;
 		Unit.rushTargetLocation = location;
 	}
-    
     
     /**
      * Spawn message, used to keep track of macroeconomic stats.
@@ -128,16 +124,7 @@ class TransactionLogic {
     }
     
     static void readSpawnMessage(int[] message) throws GameActionException {
-    	RobotType type = numToRobotType(message[2]);
-    	switch (type) {
-    	case VAPORATOR: 			Unit.vaporatorsSpawned++;			break;
-    	case FULFILLMENT_CENTER:	Unit.fulfillmentCentersSpawned++; 	break;
-    	case DESIGN_SCHOOL:			Unit.designSchoolsSpawned++; 		break;
-    	case MINER:					Unit.minersSpawned++;				break;
-    	case LANDSCAPER:			Unit.landscapersSpawned++;			break;
-    	case DELIVERY_DRONE:		Unit.dronesSpawned++;				break;
-    	default: break;
-    	}
+
     }
     
     /**
@@ -213,10 +200,9 @@ class TransactionLogic {
     	}
     	if (message[1] == MessageType.LOCATION.ordinal()) readLocationMessage(message);
 		if (message[1] == MessageType.RUSH_DEFEATED.ordinal()) readRushDefeatedMessage(message);
-		if (message[1] == MessageType.RUSH_DETECTED.ordinal()) readRushDetectedMessage(message);
+    	if (message[1] == MessageType.RUSH_DETECTED.ordinal()) readRushDetectedMessage(message);
     	if (message[1] == MessageType.UNIT_SPAWNED.ordinal()) readSpawnMessage(message);
     	if (message[1] == MessageType.SOUP_LOCATION.ordinal()) readSoupLocationMessage(message);
-    	if (message[1] == MessageType.WALL_COMPLETE.ordinal()) readWallCompleteMessage(message);
     }
     
     void readBlock(Transaction[] ts, int roundNum) throws GameActionException {

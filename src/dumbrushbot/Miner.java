@@ -231,6 +231,13 @@ public class Miner extends Unit {
 	static int lateFullfillmentCenter = 0;
 	static int lateDesignSchool = 0;
 	static void primaryBuilder() throws GameActionException {
+		if (rc.getRoundNum() > 400) {
+			path.setTarget(hqLocation);
+			macroBuilding();
+			soupCollecting();
+			return;
+		}
+
 		rc.setIndicatorDot(rc.getLocation(), 128, 0, 0);
 		MapLocation loc = rc.getLocation();
 
@@ -305,12 +312,12 @@ public class Miner extends Unit {
 		if (enemyDrone && !friendlyNetGun) {
 			smartBuild(RobotType.NET_GUN, true);
 		}
-		if (rc.getRoundNum() > 300 && rc.getTeamSoup() > RobotType.DESIGN_SCHOOL.cost && Math.random() < 0.1 - (((float) rc.getRoundNum()) / 25000))  {
-			smartBuild(RobotType.DESIGN_SCHOOL);
-		} else if (rc.getRoundNum() > 1000 && rc.getTeamSoup() > 1000 && Math.random() < 0.1) {
-			smartBuild(RobotType.FULFILLMENT_CENTER, true);
-		} else if (rc.getRoundNum() > 600 && rc.getTeamSoup() > 1000 && Math.random() < 0.3) {
+		if (rc.getTeamSoup() > 1000 && Math.random() < 0.1) {
 			smartBuild(RobotType.VAPORATOR, true);
+		} else if (rc.getRoundNum() > 300 && rc.getTeamSoup() > RobotType.DESIGN_SCHOOL.cost + 100 && Math.random() < 0.05)  {
+			smartBuild(RobotType.DESIGN_SCHOOL);
+		} else if (rc.getRoundNum() > 400 && rc.getTeamSoup() > RobotType.FULFILLMENT_CENTER.cost + 200 && Math.random() < 0.3) {
+			smartBuild(RobotType.FULFILLMENT_CENTER, true);
 		}
 	}
 

@@ -1,6 +1,8 @@
-package escudo;
+package antirushbot;
 
 import battlecode.common.*;
+
+import java.util.Map;
 
 public class Miner extends Unit {
 	
@@ -14,11 +16,11 @@ public class Miner extends Unit {
     static int buildingOrderIndex;
 
     static RobotType[] buildingOrder = {
+        RobotType.VAPORATOR,
+        RobotType.VAPORATOR,
     	RobotType.DESIGN_SCHOOL,
-    	RobotType.FULFILLMENT_CENTER,
     	RobotType.REFINERY,
-    	RobotType.VAPORATOR,
-    	RobotType.VAPORATOR,
+    	RobotType.FULFILLMENT_CENTER,
     	RobotType.VAPORATOR,
     };
     
@@ -30,11 +32,11 @@ public class Miner extends Unit {
     static int netGunsBuilt = 0;
     
 
-    static int lastMinedRound = 0;
-    static MapLocation lastSoupTile = null;
-    static MapLocation lastRefineryLocation = null;
-    static MapLocation depositLocation = null;
-    static MapLocation lastSoupTileFromComms = null;
+    static int lastMinedRound;
+    static MapLocation lastSoupTile;
+    static MapLocation lastRefineryLocation;
+    static MapLocation depositLocation;
+    static MapLocation lastSoupTileFromComms;
     
 	public Miner(RobotController _rc) throws GameActionException {
 		super(_rc);
@@ -53,9 +55,8 @@ public class Miner extends Unit {
     		primaryBuilder();
     		break;
     	case SOUP_COLLECTING:
-    		if(!macroBuilding()){
-				soupCollecting();
-			}
+    		macroBuilding();
+    		soupCollecting();
     		break;
     	}
     }
@@ -115,52 +116,13 @@ public class Miner extends Unit {
     	}
     	return null;
     }
-    
 
-    
-    static boolean randomWalkOnLattice(int tries) throws GameActionException {
-    	// Randomly move on lattice.
-    	Direction dir = Direction.CENTER;
-    	while (tries > 0) {
-    		dir = randomDirection();
-    		if (onLatticeTiles(rc.getLocation().add(dir)) && path.tryMove(dir)) {
-    			return true;
-    		}
-    		tries--;
-    	}
-    	return false;
-    }
-
-    static boolean fleeDronesIfNecessary(RobotInfo[] robots) throws GameActionException {
-		MapLocation loc = rc.getLocation();
-		boolean enemyDrone = false;
-		boolean friendlyNetGun = false;
-		MapLocation enemyDroneLoc = new MapLocation(0,0);
-		for (RobotInfo robot : robots) {
-			// Is enemy drone
-			if (robot.getType() == RobotType.DELIVERY_DRONE && robot.getTeam() == rc.getTeam().opponent()) {
-				enemyDrone = true;
-				enemyDroneLoc = robot.getLocation();
-			}
-			if (robot.getType() == RobotType.NET_GUN && robot.getTeam() == rc.getTeam()) friendlyNetGun = true;
-		}
-
-		if (enemyDrone) {
-			rc.setIndicatorDot(loc, 0,0,0);
-			// boolean highAlert = enemyDroneLoc.isWithinDistanceSquared(loc, 16);
-			boolean highAlert = true;
-			boolean built = false;
-			if(!friendlyNetGun && !loc.isAdjacentTo(enemyDroneLoc)) {
-				built = (smartBuild(RobotType.NET_GUN) != null);
-			}
-			if (!built && highAlert) {
-				path.flee(rc.getRoundNum() >= 700, enemyDroneLoc);
-			}
-			return true;
-		}
-		return false;
-	}
-
+	/**
+	 * Intelligently builds a building to be on the lattice, and not adjacent to HQ.
+	 * @param robotType
+	 * @return true if successfully builds, else false
+	 * @throws GameActionException
+	 */
 	static MapLocation antiAggroBuild(RobotType robotType) throws GameActionException{
 		Direction targetDir = rc.getLocation().directionTo(hqLocation);
 		if (hqLocation.isAdjacentTo(rc.getLocation().add(targetDir).add(targetDir))) {
@@ -185,97 +147,98 @@ public class Miner extends Unit {
 		return null;
 	}
 
-	static void rushDefense() throws GameActionException {
+    static void rushDefense() throws GameActionException {
 		MapLocation loc = rc.getLocation();
 		boolean inCombatZone = rc.canSenseLocation(hqLocation);
-		Team ourTeam = rc.getTeam();
-		int friendlyLandscaperCount = 0;
-		int enemyLandscaperCount = 0;
-		int localDesignSchoolCount = 0;
+    	Team ourTeam = rc.getTeam();
+    	int localDesignSchoolCount = 0;
 
 		RobotInfo[] robots = rc.senseNearbyRobots();
 		for (RobotInfo robot : robots) {
-			RobotType robotType = robot.getType();
 			if ( robot.getTeam() == ourTeam ) {
-				if ( robotType == RobotType.LANDSCAPER ) {
-					++friendlyLandscaperCount;
-				} else if ( robotType == RobotType.DESIGN_SCHOOL ) {
+				if ( robot.getType() == RobotType.DESIGN_SCHOOL ) {
 					++localDesignSchoolCount;
 				}
 			} else {
-				if ( robot.getType() == RobotType.LANDSCAPER ) {
-					++enemyLandscaperCount;
-				}
+				
 			}
 		}
-		if (localDesignSchoolCount < 1 && rc.getTeamSoup() >= RobotType.DESIGN_SCHOOL.cost) {
+		if (designSchoolsBuilt < 1 && rc.getTeamSoup() >= RobotType.DESIGN_SCHOOL.cost) {
 			antiAggroBuild(RobotType.DESIGN_SCHOOL);
-		} else if (fulfillmentCentersBuilt < 1 && friendlyLandscaperCount >= 1) {
-			antiAggroBuild(RobotType.FULFILLMENT_CENTER);
 		}
 		path.simpleTargetMovement(hqLocation);
 	}
 
+    
+    static boolean randomWalkOnLattice(int tries) throws GameActionException {
+    	// Randomly move on lattice.
+    	Direction dir = Direction.CENTER;
+    	while (tries > 0) {
+    		dir = randomDirection();
+    		if (onLatticeTiles(rc.getLocation().add(dir)) && path.tryMove(dir)) {
+    			return true;
+    		}
+    		tries--;
+    	}
+    	return false;
+    }
+    
     static int lateFullfillmentCenter = 0;
     static int lateDesignSchool = 0;
     static void primaryBuilder() throws GameActionException {
 		rc.setIndicatorDot(rc.getLocation(), 128, 0, 0);
-		RobotInfo[] robots = rc.senseNearbyRobots(-1);
-		if(fleeDronesIfNecessary(robots)) {
-			return;
-		}
 		
 		// Handle Rushing by building a fucking fast 
 		if (beingRushed) {
 			// Build a design school asap.
 			rushDefense();
+		} else {
+			if (buildingOrderIndex < buildingOrder.length && buildingOrder[buildingOrderIndex].cost < rc.getTeamSoup()) {
+				MapLocation built = smartBuild(buildingOrder[buildingOrderIndex]);
+				if (built != null) buildingOrderIndex++;
+			}
+
+			if (buildingOrderIndex == buildingOrder.length && rc.getRoundNum() > 600 && rc.getTeamSoup() >= RobotType.FULFILLMENT_CENTER.cost && lateFullfillmentCenter < 2) {
+				MapLocation built = smartBuild(RobotType.FULFILLMENT_CENTER);
+				if (built != null) lateFullfillmentCenter++;
+			}
+			if (buildingOrderIndex == buildingOrder.length && rc.getRoundNum() > 600 && rc.getTeamSoup() >= RobotType.DESIGN_SCHOOL.cost && lateDesignSchool < 2) {
+				MapLocation built = smartBuild(RobotType.DESIGN_SCHOOL);
+				if (built != null) lateDesignSchool++;
+			}
+
+			if (buildingOrderIndex == buildingOrder.length && rc.getRoundNum() > 150 && rc.getTeamSoup() >= RobotType.VAPORATOR.cost && Math.random() > 0.5) {
+				smartBuild(RobotType.VAPORATOR);
+			}
+
+			// Don't stray too far from HQ!
+			// Still want to stay on lattice though.
+			if (rc.getRoundNum() < 120 && rc.getLocation().distanceSquaredTo(hqLocation) > 4 || rc.getRoundNum() < 500 && rc.getLocation().distanceSquaredTo(hqLocation) > 32) {
+				Direction dir = rc.getLocation().directionTo(hqLocation);
+				if (onLatticeTiles(rc.getLocation().add(dir))) path.tryMove(dir);
+			}
+
+			// Randomly move but prefer lattice tiles.
+			soupCollecting();
 		}
-
-        if (buildingOrderIndex < buildingOrder.length && buildingOrder[buildingOrderIndex].cost < rc.getTeamSoup()) {
-        	MapLocation built = smartBuild(buildingOrder[buildingOrderIndex]);
-            if (built != null) buildingOrderIndex++;
-        }
-        
-        if (buildingOrderIndex == buildingOrder.length
-        		&& rc.getTeamSoup() >= RobotType.FULFILLMENT_CENTER.cost
-        		&& fulfillmentCentersSpawned * 500 < rc.getRoundNum()) {
-        	smartBuild(RobotType.FULFILLMENT_CENTER);
-        }
-
-        if (buildingOrderIndex == buildingOrder.length
-        		&& rc.getTeamSoup() >= RobotType.DESIGN_SCHOOL.cost
-        		&& designSchoolsSpawned * 500 < rc.getRoundNum()) {
-        	smartBuild(RobotType.DESIGN_SCHOOL);
-        }
-        
-        if (buildingOrderIndex == buildingOrder.length && rc.getRoundNum() > 150 && rc.getTeamSoup() >= RobotType.VAPORATOR.cost && Math.random() > 0.5) {
-        	smartBuild(RobotType.VAPORATOR);
-        }
-        
-        // Don't stray too far from HQ!
-        // Still want to stay on lattice though.
-        if (rc.getRoundNum() < 120 && rc.getLocation().distanceSquaredTo(hqLocation) > 4
-        		|| rc.getRoundNum() < 500 && rc.getLocation().distanceSquaredTo(hqLocation) > 32
-        		|| rc.getRoundNum() < 1200 && rc.getLocation().distanceSquaredTo(hqLocation) > 50) {
-        	Direction dir = rc.getLocation().directionTo(hqLocation);
-        	if (onLatticeTiles(rc.getLocation().add(dir))) path.tryMove(dir);
-        }
-        
-        // Randomly move but prefer lattice tiles.
-        if (!randomWalkOnLattice(50)) {
-        	path.tryMove(randomDirection());
-        }
     }
     
-    static boolean macroBuilding() throws GameActionException {
-		RobotInfo[] robots = rc.senseNearbyRobots(-1);
-    	if (fleeDronesIfNecessary(robots)) {
-			return true;
-		}
-    	if (rc.getTeamSoup() >= 500 + 2) {
-    		return smartBuild(RobotType.VAPORATOR, true) != null;
+    static void macroBuilding() throws GameActionException {
+    	RobotInfo[] robots = rc.senseNearbyRobots(-1);
+    	boolean enemyDrone = false;
+    	boolean friendlyNetGun = false;
+    	for (RobotInfo robot : robots) {
+    		// Is enemy drone
+    		if (robot.getType() == RobotType.DELIVERY_DRONE && robot.getTeam() == rc.getTeam().opponent()) enemyDrone = true;
+    		if (robot.getType() == RobotType.NET_GUN && robot.getTeam() == rc.getTeam()) friendlyNetGun = true;
     	}
-    	return false;
+    	
+    	if (enemyDrone && !friendlyNetGun) {
+    		smartBuild(RobotType.NET_GUN, true);
+    	}
+    	if (rc.getRoundNum() > 600 && rc.getTeamSoup() > 650 && Math.random() < 0.6) {
+    		smartBuild(RobotType.VAPORATOR, true);
+    	}
     }
 
     static void senseNearbyRefineries() throws GameActionException {
@@ -303,7 +266,7 @@ public class Miner extends Unit {
         }
 
 
-        if (lastSoupTile != null && !path.isPastStuckTarget(lastSoupTile)) {
+        if (lastSoupTile != null && path.isPastStuckTarget(lastSoupTile)) {
         	return lastSoupTile;
         }
 
@@ -315,12 +278,11 @@ public class Miner extends Unit {
         for (int dx = -6; dx <= 6; dx++) {
         	for (int dy = -6; dy <= 6; dy++) {
         		MapLocation potentialSoupLoc = loc.translate(dx, dy);
-
-        		if (!rc.onTheMap(potentialSoupLoc)) continue;
-        		if (path.isPastStuckTarget(potentialSoupLoc)) continue;
+        		
         		if (!rc.canSenseLocation(potentialSoupLoc)) continue;
+        		if (path.isPastStuckTarget(potentialSoupLoc)) continue;
+
     			int soupAmount = rc.senseSoup(potentialSoupLoc);
-    			
     			if (soupAmount > 0 && bestDistanceSquared > loc.distanceSquaredTo(potentialSoupLoc)) {
     				bestDistanceSquared = loc.distanceSquaredTo(potentialSoupLoc);
         			soupLoc = loc.translate(dx, dy);
@@ -333,7 +295,7 @@ public class Miner extends Unit {
         	lastSoupTile = soupLoc;
         	return soupLoc;
         } 
-        else if (lastSoupTileFromComms != null && !path.isPastStuckTarget(lastSoupTileFromComms)) {
+        else if (lastSoupTileFromComms != null && path.isPastStuckTarget(lastSoupTileFromComms)) {
         	lastSoupTile = lastSoupTileFromComms;
         	return lastSoupTileFromComms;
         }
@@ -354,6 +316,7 @@ public class Miner extends Unit {
 
     static void minerMineSoup() throws GameActionException {
 
+    	
     	MapLocation loc = rc.getLocation();
     	
     	if (path.isStuck()) {
@@ -361,8 +324,6 @@ public class Miner extends Unit {
     		rc.setIndicatorDot(loc, 255, 255, 255);
     		System.out.println("I am stuck!");
     	}
-    	
-    	if (lastSoupTileFromComms != null) rc.setIndicatorLine(loc, lastSoupTileFromComms, 255, 0, 255);
 
     	MapLocation soupLoc = findSoup();
     	
@@ -371,10 +332,10 @@ public class Miner extends Unit {
         	rc.setIndicatorLine(loc, soupLoc, 0, 255, 0);
         	// If we are next to the soup, we will mine it.
         	if (soupLoc.isAdjacentTo(loc)) {
-        		if (lastMinedRound + 100 < rc.getRoundNum() && lastSoupTileFromComms != null && lastSoupTileFromComms.distanceSquaredTo(soupLoc) > 75) {
-        			if (rc.getTeamSoup() > 1) txn.sendSoupLocationMessage(soupLoc, 1);
-        		}
-        		lastMinedRound = rc.getRoundNum();
+//        		if (lastMinedRound + 100 < rc.getRoundNum() && lastSoupTileFromComms.distanceSquaredTo(soupLoc) > 75) {
+//        			txn.sendSoupLocationMessage(soupLoc, 1);
+//        		}
+//        		lastMinedRound = rc.getRoundNum();
         		tryMine(loc.directionTo(soupLoc));
         	}
         	// If we are not next to the soup, we will move towards it.
