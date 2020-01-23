@@ -53,8 +53,9 @@ public class Miner extends Unit {
     		primaryBuilder();
     		break;
     	case SOUP_COLLECTING:
-    		macroBuilding();
-    		soupCollecting();
+    		if(!macroBuilding()){
+				soupCollecting();
+			}
     		break;
     	}
     }
@@ -129,11 +130,45 @@ public class Miner extends Unit {
     	}
     	return false;
     }
+
+    static boolean fleeDronesIfNecessary(RobotInfo[] robots) throws GameActionException {
+		MapLocation loc = rc.getLocation();
+		boolean enemyDrone = false;
+		boolean friendlyNetGun = false;
+		MapLocation enemyDroneLoc = new MapLocation(0,0);
+		for (RobotInfo robot : robots) {
+			// Is enemy drone
+			if (robot.getType() == RobotType.DELIVERY_DRONE && robot.getTeam() == rc.getTeam().opponent()) {
+				enemyDrone = true;
+				enemyDroneLoc = robot.getLocation();
+			}
+			if (robot.getType() == RobotType.NET_GUN && robot.getTeam() == rc.getTeam()) friendlyNetGun = true;
+		}
+
+		if (enemyDrone) {
+			rc.setIndicatorDot(loc, 0,0,0);
+			// boolean highAlert = enemyDroneLoc.isWithinDistanceSquared(loc, 16);
+			boolean highAlert = true;
+			boolean built = false;
+			if(!friendlyNetGun && !loc.isAdjacentTo(enemyDroneLoc)) {
+				built = (smartBuild(RobotType.NET_GUN) != null);
+			}
+			if (!built && highAlert) {
+				path.flee(rc.getRoundNum() >= 700, enemyDroneLoc);
+			}
+			return true;
+		}
+		return false;
+	}
     
     static int lateFullfillmentCenter = 0;
     static int lateDesignSchool = 0;
     static void primaryBuilder() throws GameActionException {
 		rc.setIndicatorDot(rc.getLocation(), 128, 0, 0);
+		RobotInfo[] robots = rc.senseNearbyRobots(-1);
+		if(fleeDronesIfNecessary(robots)) {
+			return;
+		}
 		
 		// Handle Rushing by building a fucking fast 
 		if (beingRushed && rc.getRoundNum() < 500) {
@@ -186,23 +221,15 @@ public class Miner extends Unit {
         }
     }
     
-    static void macroBuilding() throws GameActionException {
-    	RobotInfo[] robots = rc.senseNearbyRobots(-1);
-    	boolean enemyDrone = false;
-    	boolean friendlyNetGun = false;
-    	for (RobotInfo robot : robots) {
-    		// Is enemy drone
-    		if (robot.getType() == RobotType.DELIVERY_DRONE && robot.getTeam() == rc.getTeam().opponent()) enemyDrone = true;
-    		// Is friendly netgun
-    		if (robot.getType() == RobotType.NET_GUN && robot.getTeam() == rc.getTeam() && robot.getLocation().distanceSquaredTo(rc.getLocation()) <= 15) friendlyNetGun = true;
-    	}
-    	
-    	if (enemyDrone && !friendlyNetGun) {
-    		smartBuild(RobotType.NET_GUN, true);
-    	}
+    static boolean macroBuilding() throws GameActionException {
+		RobotInfo[] robots = rc.senseNearbyRobots(-1);
+    	if (fleeDronesIfNecessary(robots)) {
+			return true;
+		}
     	if (rc.getTeamSoup() >= 500 + 2) {
-    		smartBuild(RobotType.VAPORATOR, true);
+    		return smartBuild(RobotType.VAPORATOR, true) != null;
     	}
+    	return false;
     }
 
     static void senseNearbyRefineries() throws GameActionException {
