@@ -14,6 +14,7 @@ public class Landscaper extends Unit {
     	ATTACK,
     	RUSH_DEFENSE,
     	EARLY_RUSH,
+		FLEE,
     	WALL_V2,
     };
     
@@ -23,6 +24,8 @@ public class Landscaper extends Unit {
     static MapLocation spawnLocation = null;
     static MapLocation terraformTarget = null;
     static MapLocation attackTarget = null;
+    static MapLocation enemyDrone = null;
+    static boolean fleeEnabled = true;
     
 	public Landscaper(RobotController _rc) throws GameActionException {
 		super(_rc);
@@ -50,6 +53,7 @@ public class Landscaper extends Unit {
 		int priority = 0;
 		MapLocation bestEnemyLoc = null;
 		MapLocation loc = rc.getLocation();
+		enemyDrone = null;
 
 		for (RobotInfo enemy : enemies) {
 			MapLocation enemyLoc = enemy.getLocation();
@@ -63,6 +67,10 @@ public class Landscaper extends Unit {
 				priority = priorityOfEnemyBuilding(enemy.getType());
 				distance = loc.distanceSquaredTo(enemyLoc);
 				bestEnemyLoc = enemyLoc;
+			} else if (enemy.getType() == RobotType.DELIVERY_DRONE) {
+				if (loc.isWithinDistanceSquared(enemyLoc, 15)) {
+					enemyDrone = enemyLoc;
+				}
 			}
 		}
 		return bestEnemyLoc;
@@ -84,6 +92,10 @@ public class Landscaper extends Unit {
     	// Fucking rushed.
     	if (beingRushed) {
 			mode = LandscaperMode.EARLY_RUSH;
+		}
+    	// Flee drones
+		else if (fleeEnabled && enemyDrone != null){
+			mode = LandscaperMode.FLEE;
 		}
     	// Early Terraforming
     	else if (rc.getRoundNum() < 300) {
@@ -115,29 +127,30 @@ public class Landscaper extends Unit {
 
     	// Sense nearby enemies.
     	switch (mode) {
-    	case EARLY_TERRAFORM:
-    		terraform(true);
-    		break;
-    	case FIND_WALL:
-    		findWall();
-    		break;
-    	case ON_WALL:
-    		onWall();
-    		break;
-		case ATTACK:
-			attack(attackTarget, false);
-			break;
-		case TERRAFORM:
-			terraform(false);
-			break;
-		case EARLY_RUSH:
-			rushDefense(attackTarget);
-			break;
-		default:
-			break;
-    		
+			case EARLY_TERRAFORM:
+				terraform(true);
+				break;
+			case FLEE:
+				path.flee(rc.getRoundNum() > 300, enemyDrone);
+				break;
+			case FIND_WALL:
+				findWall();
+				break;
+			case ON_WALL:
+				onWall();
+				break;
+			case ATTACK:
+				attack(attackTarget, true);
+				break;
+			case TERRAFORM:
+				terraform(false);
+				break;
+			case EARLY_RUSH:
+				rushDefense(attackTarget);
+				break;
+			default:
+				break;
     	}
-    	
 	}
 	
 	static MapLocation getBestSensedWallLocation() throws GameActionException {
@@ -546,7 +559,7 @@ public class Landscaper extends Unit {
 			}
 		}
 
-		if (rc.getDirtCarrying() == 0 && digThenWalk) {
+		if (rc.getDirtCarrying() == 0 && (digThenWalk || loc.isAdjacentTo(attackTarget))) {
 			smartDig(loc, true);
 		}
 		else {
