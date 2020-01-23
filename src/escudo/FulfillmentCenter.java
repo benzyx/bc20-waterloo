@@ -23,26 +23,29 @@ public class FulfillmentCenter extends Unit {
 		}
 		return true;
 	}
-	@Override
-	public void run() throws GameActionException {
-		
-		txn.updateToLatestBlock();
+
+	public void rushDefense() throws GameActionException{
 		RobotInfo[] robots = rc.senseNearbyRobots();
 		MapLocation loc = rc.getLocation();
-		
-		if (rc.getRoundNum() > 350) beingRushed = false;
-
-		if (beingRushed) {
-			if (rc.getRoundNum() < 500 && rc.getTeamSoup() >= RobotType.DELIVERY_DRONE.cost && Math.random() < 0.5) {
-				for (Direction dir : directions) {
-	    			if (safeToBuild(robots, loc.add(dir)) && tryBuild(RobotType.DELIVERY_DRONE, dir)) {
-	    				dronesBuilt++;
-	    				break;
-	    			}
-	    		}
+		if (rc.getTeamSoup() >= RobotType.DELIVERY_DRONE.cost && Math.random() < 0.5) {
+			for (Direction dir : directions) {
+				if (safeToBuild(robots, loc.add(dir)) && tryBuild(RobotType.DELIVERY_DRONE, dir)) {
+					dronesBuilt++;
+					break;
+				}
 			}
 		}
+	}
+
+	@Override
+	public void run() throws GameActionException {
+		txn.updateToLatestBlock();
+		if (beingRushed) {
+			rushDefense();
+		}
 		else {
+			RobotInfo[] robots = rc.senseNearbyRobots();
+			MapLocation loc = rc.getLocation();
 	        if ((rc.getTeamSoup() > 800) ||
 	        		(rc.getRoundNum() > 1000 && rc.getTeamSoup() >= RobotType.DELIVERY_DRONE.cost) ||
 	        		(rc.getTeamSoup() > 300

@@ -115,7 +115,7 @@ public class HQ extends Unit {
     		
     		// Detect rushes.
     		if (!beingRushed && robot.getTeam() == rc.getTeam().opponent()) {
-    			if (rc.getRoundNum() < 300 && robot.getType() == RobotType.MINER || robot.getType() == RobotType.LANDSCAPER || robot.getType().isBuilding()) {
+    			if (rc.getRoundNum() < 300 && (robot.getType() == RobotType.MINER || robot.getType() == RobotType.LANDSCAPER || robot.getType().isBuilding())) {
     				int bid = Math.min(11, rc.getTeamSoup());
     				if (bid > 0) {
     					txn.sendRushDetectedMessage(robot, bid);

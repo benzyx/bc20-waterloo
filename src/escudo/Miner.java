@@ -189,20 +189,29 @@ public class Miner extends Unit {
 		MapLocation loc = rc.getLocation();
 		boolean inCombatZone = rc.canSenseLocation(hqLocation);
 		Team ourTeam = rc.getTeam();
+		int friendlyLandscaperCount = 0;
+		int enemyLandscaperCount = 0;
 		int localDesignSchoolCount = 0;
 
 		RobotInfo[] robots = rc.senseNearbyRobots();
 		for (RobotInfo robot : robots) {
+			RobotType robotType = robot.getType();
 			if ( robot.getTeam() == ourTeam ) {
-				if ( robot.getType() == RobotType.DESIGN_SCHOOL ) {
+				if ( robotType == RobotType.LANDSCAPER ) {
+					++friendlyLandscaperCount;
+				} else if ( robotType == RobotType.DESIGN_SCHOOL ) {
 					++localDesignSchoolCount;
 				}
 			} else {
-
+				if ( robot.getType() == RobotType.LANDSCAPER ) {
+					++enemyLandscaperCount;
+				}
 			}
 		}
-		if (designSchoolsBuilt < 1 && rc.getTeamSoup() >= RobotType.DESIGN_SCHOOL.cost) {
+		if (localDesignSchoolCount < 1 && rc.getTeamSoup() >= RobotType.DESIGN_SCHOOL.cost) {
 			antiAggroBuild(RobotType.DESIGN_SCHOOL);
+		} else if (fulfillmentCentersBuilt < 1 && friendlyLandscaperCount >= 1) {
+			antiAggroBuild(RobotType.FULFILLMENT_CENTER);
 		}
 		path.simpleTargetMovement(hqLocation);
 	}

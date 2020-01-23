@@ -104,6 +104,7 @@ class TransactionLogic {
 
 	void sendRushDefeatedMessage(RobotInfo robot, int cost) throws GameActionException {
 		MapLocation loc = robot.getLocation();
+		rc.setIndicatorDot(rc.getLocation(), 0,0,0);
 		int[] message = {1, MessageType.RUSH_DEFEATED.ordinal(), 0, robotTypeToNum(robot.getType()), 0, loc.x, loc.y};
 		rc.submitTransaction(applyXORtoMessage(message, cost, rc.getRoundNum()), cost);
 	}
