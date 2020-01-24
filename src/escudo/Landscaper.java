@@ -93,13 +93,13 @@ public class Landscaper extends Unit {
     	if (beingRushed) {
 			mode = LandscaperMode.EARLY_RUSH;
 		}
-    	// Flee drones
-		else if (fleeEnabled && enemyDrone != null){
-			mode = LandscaperMode.FLEE;
-		}
     	// Early Terraforming
     	else if (rc.getRoundNum() < 300) {
-    		if (attackTarget != null) {
+			// Flee drones
+			if (fleeEnabled && enemyDrone != null){
+				mode = LandscaperMode.FLEE;
+			}
+    		else if (attackTarget != null) {
     			mode = LandscaperMode.ATTACK;
     		}
     		else {
@@ -120,6 +120,10 @@ public class Landscaper extends Unit {
     		else if (!wallComplete && rc.getRoundNum() <= wallCutoffRound) {
 	    		mode = LandscaperMode.FIND_WALL;
 	    	}
+			// Flee drones
+			else if (fleeEnabled && enemyDrone != null){
+				mode = LandscaperMode.FLEE;
+			}
 	    	else {
 	    		mode = LandscaperMode.TERRAFORM;
 	    	}
